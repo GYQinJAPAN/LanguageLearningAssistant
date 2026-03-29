@@ -1,2 +1,6 @@
-# For-study
-the first repository of mine , learn how to create the architect of projects at first
+# Introduction
+
+I’ve recently been trying to improve my spoken English, 
+but I found that most apps on the App Store require subscriptions.
+
+So I decided to build my own English learning app tailored to my needs.
