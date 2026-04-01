@@ -161,6 +161,36 @@ Leading: 只显示行首的空格（缩进处）。
 Inner: 显示代码中间的空格。
 Trailing: 显示行尾多余的空格（建议开启，保持代码整洁）。
 
-
-
-
+项目结构（直接可以照着建）
+单仓库结构（适合你现在阶段）
+chat-translator-app/
+├── frontend/ # 前端（Web 或 简单UI）
+│ ├── package.json # Added: Frontend dependencies
+│ ├── src/
+│ ├── components/
+│ └── pages/
+│
+├── backend/ # 后端（核心）
+│ ├── app/
+│ │ ├── main.py # 入口（FastAPI）
+│ │ ├── core/ # Added: config.py, logger.py, exceptions.py
+│ │ ├── routes/ # API 路由
+│ │ ├── services/ # 核心逻辑（LLM调用）
+│ │ ├── models/ # 数据结构
+│ │ └── utils/ # 工具函数
+│ │
+│ ├── tests/ # Added: For testing your LLM logic safely
+│ └── requirements.txt
+│
+├── prompt/ # ⭐关键亮点
+│ ├── base.j2 # Changed to template format for dynamic injection
+│ ├── personas.yaml # Alternative: group all styles in one structured file
+│ ├── base_prompt.txt
+│ ├── casual.txt
+│ ├── polite.txt
+│ └── flirty.txt
+│
+├── .env # API KEY
+├── .gitignore # Added: Crucial so you don't commit your .env!
+├── README.md
+└── docker-compose.yml # （加分项）
