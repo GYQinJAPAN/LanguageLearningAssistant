@@ -1,6 +1,6 @@
-# git配置
+# git软件配置
 
-配置全局用户名和邮箱
+- 配置全局用户名和邮箱
 
 ```
 git --version
@@ -16,7 +16,7 @@ git config --global user.email "you@example.com"
 git clone <repository-url> [目标目录]
 ```
 
-默认创建与 远程 同名目录，也可指定后面带上目录名：
+- 默认创建与 远程 同名目录，也可指定后面带上目录名：
 
 ```
 git clone https://github.com/user/repo.git myproject
@@ -26,7 +26,7 @@ git clone https://github.com/user/repo.git myproject
 ps:如果想要把代码保存在桌面,就需要从桌面进入Git Bash Here
 
 2. 新建空仓库（git init）
-   如果是自己新建的一个项目,可以创建 一个文件夹,作为项目的总文件夹 . 然后,进入文件夹页面,在文件夹下,打开Git控制台.
+   如果是自己新建的一个项目,可以创建 一个文件夹,作为项目的总文件夹 . 然后,进入文件夹页面,在文件夹下,打开git bash.
 
 ```
 mkdir myproject && cd myproject  
@@ -80,6 +80,7 @@ Base interpreter（选择 Python 版本）
 ```
 1. .venv\Scripts\activate
 2. pip install -r requirements.txt
+ - pip install -r backend/requirements.txt
 3. pip freeze > requirements.txt
 4. deactivate
 ```
@@ -161,36 +162,96 @@ Leading: 只显示行首的空格（缩进处）。
 Inner: 显示代码中间的空格。
 Trailing: 显示行尾多余的空格（建议开启，保持代码整洁）。
 
-项目结构（直接可以照着建）
-单仓库结构（适合你现在阶段）
-chat-translator-app/
-├── frontend/ # 前端（Web 或 简单UI）
-│ ├── package.json # Added: Frontend dependencies
-│ ├── src/
-│ ├── components/
-│ └── pages/
+# 安装Node.js
+
+React / Vite 前端开发必须依赖 Node.js + npm。
+去官网下载：https://nodejs.org
+建议安装： LTS版本（长期支持）
+安装时注意： 必须勾选这一项： Add to PATH 一般默认已经勾选。其他默认即可!!!
+
+## 安装完成后验证
+
+重新打开PowerShell。
+
+然后运行： node -v
+如果成功会看到类似： v20.11.1
+再运行： npm -v
+例如： 10.2.4
+
+只要这两个命令成功，你就可以继续了。
+重启PyCharm!!!
+
+# Vite React 项目构建
+
+在项目根目录打开终端：
+
+```
+cd frontend
+```
+
+```
+npm create vite@latest . -- --template react
+```
+
+如果提示： Need to install create-vite
+输入： y
+
+然后有可能会出现 ：当前 frontend 目录不是空的。
+
+Vite 在创建项目时发现：
+
+```
+frontend/
+src/
+__init__.py
+App.js
+```
+
+所以它问你： Current directory is not empty.
+
+意思是： 当前目录已经有文件了，你想怎么处理？
+
+这三个选项是什么意思
+1️⃣ Cancel operation :取消操作（什么也不做）
+2️⃣ Remove existing files and continue :删除当前目录里的文件，然后创建新的 Vite 项目
+⚠️ 会删除：
+frontend/src
+frontend/__init__.py
+3️⃣ Ignore files and continue ✅ 推荐
+意思是： 保留现有文件 ,在当前目录创建 Vite 项目 不会删除你的东西。
+
+直接选： Ignore files and continue
+
+操作方式：
+键盘按： ↓
+直到光标到： Ignore files and continue
+然后按： Enter
+
+自动生成的文件一览
+
+```
+frontend/
 │
-├── backend/ # 后端（核心）
-│ ├── app/
-│ │ ├── main.py # 入口（FastAPI）
-│ │ ├── core/ # Added: config.py, logger.py, exceptions.py
-│ │ ├── routes/ # API 路由
-│ │ ├── services/ # 核心逻辑（LLM调用）
-│ │ ├── models/ # 数据结构
-│ │ └── utils/ # 工具函数
-│ │
-│ ├── tests/ # Added: For testing your LLM logic safely
-│ └── requirements.txt
+├─ index.html
+├─ package.json
+├─ vite.config.js
+├─ node_modules
 │
-├── prompt/ # ⭐关键亮点
-│ ├── base.j2 # Changed to template format for dynamic injection
-│ ├── personas.yaml # Alternative: group all styles in one structured file
-│ ├── base_prompt.txt
-│ ├── casual.txt
-│ ├── polite.txt
-│ └── flirty.txt
-│
-├── .env # API KEY
-├── .gitignore # Added: Crucial so you don't commit your .env!
-├── README.md
-└── docker-compose.yml # （加分项）
+└─ src
+   ├─ App.jsx
+   ├─ main.jsx
+   └─ style.css
+```
+
+```
+npm install
+```
+
+Vite 官方的创建方式就是通过 create vite 来初始化项目。
+如果它提示目录非空，你有两种办法：
+
+- 一种是先把 frontend 里现在的内容备份后清空再执行。
+- 另一种是新建一个临时前端目录测试，跑通后再并回你的项目。
+
+
+
