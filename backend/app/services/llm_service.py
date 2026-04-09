@@ -1,7 +1,7 @@
 from openai import AsyncOpenAI
-from app.core.config import OPENAI_API_KEY
+from app.core.config import settings
 
-client: AsyncOpenAI = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client: AsyncOpenAI = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 async def translate_and_rewrite(
