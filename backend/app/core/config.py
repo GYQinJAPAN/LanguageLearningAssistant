@@ -1,20 +1,27 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/app/core/config.py
-# parent = core
-# parent.parent = app
-# parent.parent.parent = backend
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str
+    APP_NAME: str = "LLM Chat Translator API"
+    APP_VERSION: str = "0.1.0"
     APP_HOST: str = "127.0.0.1"
     APP_PORT: int = 8000
+    API_PREFIX: str = "/api/v1"
     ALLOWED_ORIGINS: str = "http://127.0.0.1:5173,http://localhost:5173"
+
+    PROMPT_DIR: Path = BASE_DIR / "app" / "prompts"
+
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TEMPERATURE: float = 0.7
+    OPENAI_MAX_TOKENS: int = 300
+
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(
@@ -31,8 +38,15 @@ class Settings(BaseSettings):
             if origin.strip()
         ]
 
+    @property
+    def api_prefix(self) -> str:
+        prefix = self.API_PREFIX.strip()
+        if not prefix:
+            return ""
+        return f"/{prefix.strip('/')}"  # 移除 prefix 首尾的所有斜杠 /。确保最终结果始终以单斜杠开头，且不以斜杠结尾。
+
 
 settings = Settings()
 
-# 兼容旧代码
-PROMPT_DIR = BASE_DIR / "app" / "prompts"
+# Compatibility alias for older imports. New code should use settings.PROMPT_DIR.
+PROMPT_DIR = settings.PROMPT_DIR

@@ -1,20 +1,19 @@
-from app.core.config import PROMPT_DIR
-from app.schemas.translate_schema import TranslateResponse, TranslateRequest
+import logging
+
+from fastapi import APIRouter, HTTPException, status
+
+from app.core.config import settings
+from app.schemas.translate_schema import TranslateRequest, TranslateResponse
 from app.services.llm_service import translate_and_rewrite
 from app.utils.prompt_manager import PromptManager
-from fastapi import APIRouter, HTTPException
 
-"""
-翻译 API
-"""
-# 定义 API
-router: APIRouter = APIRouter(prefix="/api/v1", tags=["Translation"])
+logger = logging.getLogger(__name__)
+router: APIRouter = APIRouter(prefix=settings.api_prefix, tags=["Translation"])
 prompt_manager: PromptManager = PromptManager()
 
 
 @router.post("/translate", response_model=TranslateResponse)
 async def translate_endpoint(request: TranslateRequest):
-
     try:
         actual_style, prompt_template = prompt_manager.load_prompt(request.style)
 
@@ -38,7 +37,15 @@ async def translate_endpoint(request: TranslateRequest):
             target_lang=request.target_lang,
         )
 
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
+    except ValueError as exc:
+        logger.warning("Invalid translate request: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+    except RuntimeError as exc:
+        logger.warning("Translation failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        logger.exception("Unexpected translation error.")
+        raise HTTPException(status_code=500, detail="服务器内部错误，请稍后再试。")
