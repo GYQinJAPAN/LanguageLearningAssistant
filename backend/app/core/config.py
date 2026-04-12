@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,7 +16,7 @@ class Settings(BaseSettings):
     PROMPT_DIR: Path = BASE_DIR / "app" / "prompts"
 
     OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: Optional[str] = None
+    OPENAI_BASE_URL: str | None = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_TEMPERATURE: float = 0.7
     OPENAI_MAX_TOKENS: int = 300
@@ -31,12 +30,8 @@ class Settings(BaseSettings):
     )
 
     @property
-    def allowed_origins_list(self) -> List[str]:
-        return [
-            origin.strip()
-            for origin in self.ALLOWED_ORIGINS.split(",")
-            if origin.strip()
-        ]
+    def allowed_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     @property
     def api_prefix(self) -> str:

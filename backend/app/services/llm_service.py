@@ -1,8 +1,7 @@
 import logging
 
-from openai import AsyncOpenAI
-
 from app.core.config import settings
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 _client: AsyncOpenAI | None = None

@@ -1,12 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from app.core.config import settings
 from app.core.logger import setup_logging
 from app.routes import style_routes, translate_routes
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -44,9 +43,7 @@ app.include_router(style_routes.router)
 
 @app.get("/")
 async def root():
-    return {
-        "message": "Welcome to the LLM Translator API. Visit /docs for documentation."
-    }
+    return {"message": "Welcome to the LLM Translator API. Visit /docs for documentation."}
 
 
 @app.get("/health")

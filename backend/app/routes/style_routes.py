@@ -1,8 +1,7 @@
-from fastapi import APIRouter
-
 from app.core.config import settings
 from app.schemas.style_schema import StyleItem, StyleListResponse
 from app.utils.prompt_manager import PromptManager
+from fastapi import APIRouter
 
 router: APIRouter = APIRouter(prefix=settings.api_prefix, tags=["Styles"])
 prompt_manager: PromptManager = PromptManager()

@@ -131,6 +131,106 @@ Mac/Linux：
 ⑤ Working directory:
 ```$ProjectFileDir$ ```
 
+## 关于PyCharm版本升级之后,原先的File Watchers无法使用的替代方案.
+
+替代方案:Ruff 接管格式化 + lint，PyCharm 原生集成接管保存时动作，pre-commit 接管提交前兜底
+
+```
+pip install -U ruff pre-commit
+pip list
+ruff --version
+pre-commit --version
+```
+
+## 首先在根目录创建pyproject.toml文件,规则内容可以询问ai.内容确定之后,在终端执行下述命令.
+
+ruff check .：lint 主入口,检查，类似 Flake8
+ruff check . --fix：自动修一部分可修问题
+ruff format .：格式化主入口，定位上就是 Black 的替代物。
+
+```
+ruff check backend
+ruff check backend --fix
+ruff format backend
+ruff check backend
+```
+
+## 在 PyCharm 里启用原生 Ruff 集成
+
+打开：
+
+```
+Settings
+  -> Python
+    -> Tools
+      -> Ruff
+```
+
+然后这样设置：
+勾选 Enable
+Execution mode 选 Interpreter mode
+如果下面有按钮，点 Install Ruff
+勾选：
+
+- Inspections
+- Formatting
+- Import optimizer
+  你选 Interpreter mode 的好处是最简单：
+- PyCharm 会去你当前项目解释器里找 Ruff。这样不同项目各自用自己的 venv，不容易串环境。
+
+## 配置保存时自动生效
+
+```
+Settings
+  -> Tools
+    -> Actions on Save
+```
+
+勾选：
+
+- Reformat code
+- Optimize imports
+
+Actions on Save 可以在保存时自动做 Reformat code 和 Optimize imports；
+而 Ruff 集成启用后，这两个动作会使用 Ruff。
+
+注意事项：
+文件类型尽量只选 Python
+```
+コードの整形
+- 文件类型：Python
+- 范围：ファイル全体
+- 触发：すべての保存
+インポートの最適化
+- 文件类型：Python
+- 范围：ファイル全体
+- 触发：すべての保存
+```
+
+## 配置 pre-commit，
+
+在项目根目录新建 .pre-commit-config.yaml。
+文件内容:略
+
+然后执行：
+```
+# 1) 确认在项目根目录
+# 2) 创建 .pre-commit-config.yaml
+
+# 3) 安装
+pip install pre-commit
+
+# 4) 安装 git hooks
+pre-commit install
+
+# 5) 首次全量检查
+pre-commit run --all-files
+
+# 6) 如有改动，再跑一次确认
+pre-commit run --all-files
+```
+这样以后你每次 git commit 时，它都会帮你再兜底一次。
+
 # 其他配置
 
 ## 自动保存设置

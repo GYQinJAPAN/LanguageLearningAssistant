@@ -53,9 +53,7 @@ class PromptManager:
         if not style_key:
             raise ValueError("style 不能为空。")
         if not self.STYLE_KEY_PATTERN.fullmatch(style_key):
-            raise ValueError(
-                "style 格式不合法，只允许字母、数字、下划线和短横线。"
-            )
+            raise ValueError("style 格式不合法，只允许字母、数字、下划线和短横线。")
         return style_key
 
     def _prompt_path_for(self, style_name: str) -> Path:
@@ -102,10 +100,10 @@ class PromptManager:
         return self.BUILTIN_FALLBACK_STYLE, self.BUILTIN_FALLBACK_PROMPT
 
     def build_system_prompt(
-            self,
-            prompt_template: str,
-            source_lang: str,
-            target_lang: str,
+        self,
+        prompt_template: str,
+        source_lang: str,
+        target_lang: str,
     ) -> str:
         """Build the final system prompt sent to the LLM."""
         return f"""
@@ -125,14 +123,14 @@ class PromptManager:
 
     def list_styles(self) -> list[str]:
         """
-       列出提示词目录下所有可用的风格名称
+        列出提示词目录下所有可用的风格名称
 
-       扫描 prompt_dir 下的所有 .txt 文件，提取文件名（不含扩展名），
-       并过滤掉不符合命名规范的文件。
+        扫描 prompt_dir 下的所有 .txt 文件，提取文件名（不含扩展名），
+        并过滤掉不符合命名规范的文件。
 
-       Returns:
-           排序后的风格名称列表，默认风格（DEFAULT_STYLE）会排在第一位（如果存在）
-       """
+        Returns:
+            排序后的风格名称列表，默认风格（DEFAULT_STYLE）会排在第一位（如果存在）
+        """
         if not self.prompt_dir.exists():
             logger.warning("Prompt directory does not exist: %s", self.prompt_dir)
             return [self.DEFAULT_STYLE]
