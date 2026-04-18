@@ -1,3 +1,5 @@
+"""Translation API routes."""
+
 import logging
 
 from app.core.config import settings
@@ -20,6 +22,7 @@ async def translate_endpoint(
     request: TranslateRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
+    """Translate user text and persist the result to history."""
     try:
         actual_style, prompt_template = prompt_manager.load_prompt(request.style)
 

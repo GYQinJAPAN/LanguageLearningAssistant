@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint."""
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -14,11 +16,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    lifespan 是 FastAPI 应用的生命周期管理器，它定义了应用 启动时 和 关闭时 需要执行的全局操作。
-    它在应用 开始接收请求之前 执行 yield 之前的代码（初始化）。
-    在应用 停止接收请求之后 执行 yield 之后的代码（清理）。
-    """
+    """Initialize application resources before serving requests."""
     logger.info("Application starting.")
     logger.info("Host: %s", settings.APP_HOST)
     logger.info("Port: %s", settings.APP_PORT)
@@ -26,7 +24,7 @@ async def lifespan(app: FastAPI):
     logger.info("Allowed origins: %s", settings.allowed_origins_list)
     logger.info("OpenAI model: %s", settings.OPENAI_MODEL)
     logger.info("Database URL: %s", settings.DATABASE_URL)
-    await init_db()  # 关键操作：初始化数据库表结构（如果不存在则创建）
+    await init_db()
     yield
     logger.info("Application shutting down.")
 
@@ -52,11 +50,13 @@ app.include_router(history_routes.router)
 
 @app.get("/")
 async def root():
+    """Return a basic API landing response."""
     return {"message": "Welcome to the LLM Translator API. Visit /docs for documentation."}
 
 
 @app.get("/health")
 async def health_check():
+    """Return application health metadata."""
     return {
         "status": "ok",
         "app": settings.APP_NAME,

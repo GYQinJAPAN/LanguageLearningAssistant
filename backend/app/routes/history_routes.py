@@ -1,3 +1,5 @@
+"""History API routes."""
+
 from app.core.config import settings
 from app.core.database import get_db_session
 from app.schemas.history_schema import (
@@ -25,6 +27,7 @@ async def list_history(
     q: str | None = Query(default=None, min_length=1, max_length=200),
     session: AsyncSession = Depends(get_db_session),
 ):
+    """List translation history records with optional keyword search."""
     keyword = q.strip() if q and q.strip() else None
     items, total = await list_history_records(
         session=session,
@@ -46,6 +49,7 @@ async def get_history(
     history_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
+    """Return one translation history record by ID."""
     history = await get_history_record(session=session, history_id=history_id)
     if history is None:
         raise HTTPException(
@@ -61,6 +65,7 @@ async def delete_history(
     history_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
+    """Delete one translation history record by ID."""
     deleted = await delete_history_record(session=session, history_id=history_id)
     if not deleted:
         raise HTTPException(
@@ -75,6 +80,7 @@ async def delete_history(
 async def clear_history(
     session: AsyncSession = Depends(get_db_session),
 ):
+    """Delete all translation history records."""
     deleted_count = await clear_history_records(session=session)
 
     return TranslationHistoryClearResponse(

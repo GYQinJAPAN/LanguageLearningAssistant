@@ -1,3 +1,5 @@
+"""OpenAI client access and translation service functions."""
+
 import logging
 
 from app.core.config import settings
@@ -8,6 +10,7 @@ _client: AsyncOpenAI | None = None
 
 
 def get_openai_client() -> AsyncOpenAI:
+    """Return a cached OpenAI async client configured from settings."""
     global _client
 
     if not settings.OPENAI_API_KEY:

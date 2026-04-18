@@ -1,3 +1,5 @@
+"""Style API routes."""
+
 from app.core.config import settings
 from app.schemas.style_schema import StyleItem, StyleListResponse
 from app.utils.prompt_manager import PromptManager
@@ -9,6 +11,7 @@ prompt_manager: PromptManager = PromptManager()
 
 @router.get("/styles", response_model=StyleListResponse)
 async def get_styles():
+    """Return available translation styles."""
     style_names = prompt_manager.list_styles()
     styles = [
         StyleItem(
