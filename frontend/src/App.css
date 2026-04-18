@@ -141,7 +141,8 @@ h1 {
 }
 
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   border: none;
   border-radius: 14px;
   padding: 14px 18px;
@@ -164,13 +165,21 @@ h1 {
   color: #ffffff;
 }
 
+.danger-button {
+  flex: 1;
+  background: #b91c1c;
+  color: #ffffff;
+}
+
 .primary-button:hover:not(:disabled),
-.secondary-button:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled),
+.danger-button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
 .primary-button:disabled,
-.secondary-button:disabled {
+.secondary-button:disabled,
+.danger-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
@@ -245,6 +254,11 @@ h1 {
   margin-bottom: 14px;
 }
 
+.history-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .history-summary {
   margin: 0;
   color: #64748b;
@@ -302,15 +316,24 @@ h1 {
 
 .history-item {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
   width: 100%;
   min-height: 72px;
-  padding: 13px 14px;
   border: 0;
   border-bottom: 1px solid #e2e8f0;
   background: transparent;
   color: #0f172a;
+}
+
+.history-item-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
@@ -318,6 +341,29 @@ h1 {
 .history-item:hover,
 .history-item.is-active {
   background: #eef2ff;
+}
+
+.history-delete-button {
+  align-self: center;
+  margin-right: 10px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history-delete-button:hover:not(:disabled) {
+  background: #ffe4e6;
+}
+
+.history-item-main:disabled,
+.history-delete-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .history-item-text {
@@ -378,6 +424,38 @@ h1 {
   font-size: 14px;
 }
 
+.history-empty-state {
+  min-height: 238px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  text-align: center;
+}
+
+.history-empty-icon {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.history-empty-state strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.history-empty-state span {
+  max-width: 240px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .reuse-button {
   width: 100%;
   margin-top: 16px;
@@ -427,12 +505,18 @@ h1 {
   .select,
   .history-input,
   .primary-button,
-  .secondary-button {
+  .secondary-button,
+  .danger-button {
     font-size: 14px;
   }
 
   .history-header,
   .history-search {
+    flex-direction: column;
+  }
+
+  .history-header-actions {
+    width: 100%;
     flex-direction: column;
   }
 

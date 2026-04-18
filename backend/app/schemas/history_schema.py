@@ -32,3 +32,13 @@ class TranslationHistoryListResponse(BaseModel):
     page: int = Field(..., ge=1)
     page_size: int = Field(..., ge=1)
     total: int = Field(..., ge=0)
+
+
+class TranslationHistoryDeleteResponse(BaseModel):
+    deleted: bool
+    id: int
+
+
+class TranslationHistoryClearResponse(BaseModel):
+    deleted: bool
+    deleted_count: int = Field(..., ge=0)

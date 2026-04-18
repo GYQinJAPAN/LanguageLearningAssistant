@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import {
+  clearHistory,
+  deleteHistoryRecord,
   fetchHistory,
   fetchHistoryDetail,
   fetchStyles,
@@ -35,6 +37,16 @@ function makeSnippet(value, maxLength = 72) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
+function HistoryEmptyState({ title, description }) {
+  return (
+    <div className="history-empty-state">
+      <div className="history-empty-icon">History</div>
+      <strong>{title}</strong>
+      {description && <span>{description}</span>}
+    </div>
+  );
+}
+
 function App() {
   const [text, setText] = useState("");
   const [style, setStyle] = useState("base_prompt");
@@ -52,9 +64,11 @@ function App() {
 
   const [historyItems, setHistoryItems] = useState([]);
   const [historySearch, setHistorySearch] = useState("");
+  const [activeHistorySearch, setActiveHistorySearch] = useState("");
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
+  const [historyActionLoading, setHistoryActionLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [selectedHistory, setSelectedHistory] = useState(null);
 
@@ -89,8 +103,10 @@ function App() {
         pageSize: HISTORY_PAGE_SIZE,
         q: query,
       });
-      setHistoryItems(data.items || []);
+      const items = data.items || [];
+      setHistoryItems(items);
       setHistoryTotal(data.total || 0);
+      setActiveHistorySearch(query.trim());
     } catch (err) {
       setHistoryError(err.message || "加载历史记录失败");
     } finally {
@@ -98,10 +114,48 @@ function App() {
     }
   }, []);
 
+  const handleSelectHistory = useCallback(async (historyId, fallbackRecord = null) => {
+    setHistoryDetailLoading(true);
+    setHistoryError("");
+
+    if (fallbackRecord) {
+      setSelectedHistory(fallbackRecord);
+    }
+
+    try {
+      const data = await fetchHistoryDetail(historyId);
+      setSelectedHistory(data);
+    } catch (err) {
+      setSelectedHistory(null);
+      setHistoryError(err.message || "加载历史详情失败");
+    } finally {
+      setHistoryDetailLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadStyles();
     loadHistory();
   }, [loadStyles, loadHistory]);
+
+  useEffect(() => {
+    if (historyLoading) {
+      return;
+    }
+
+    if (historyItems.length === 0) {
+      setSelectedHistory(null);
+      return;
+    }
+
+    const selectedStillVisible = historyItems.some(
+      (item) => item.id === selectedHistory?.id
+    );
+
+    if (!selectedStillVisible) {
+      handleSelectHistory(historyItems[0].id, historyItems[0]);
+    }
+  }, [handleSelectHistory, historyItems, historyLoading, selectedHistory?.id]);
 
   const handleTranslate = async () => {
     if (!text.trim()) {
@@ -151,20 +205,6 @@ function App() {
     await loadHistory(historySearch);
   };
 
-  const handleSelectHistory = async (historyId) => {
-    setHistoryDetailLoading(true);
-    setHistoryError("");
-
-    try {
-      const data = await fetchHistoryDetail(historyId);
-      setSelectedHistory(data);
-    } catch (err) {
-      setHistoryError(err.message || "加载历史详情失败");
-    } finally {
-      setHistoryDetailLoading(false);
-    }
-  };
-
   const handleReuseHistory = (record) => {
     if (!record) return;
 
@@ -180,6 +220,61 @@ function App() {
       setStyle(record.style_requested);
     }
   };
+
+  const handleDeleteHistory = async (record) => {
+    if (!record) return;
+
+    const confirmed = window.confirm("确定要删除这条历史记录吗？此操作不可撤销。");
+    if (!confirmed) return;
+
+    setHistoryActionLoading(true);
+    setHistoryError("");
+
+    try {
+      await deleteHistoryRecord(record.id);
+      setHistoryItems((items) => items.filter((item) => item.id !== record.id));
+      setHistoryTotal((total) => Math.max(0, total - 1));
+      setSelectedHistory((current) => (current?.id === record.id ? null : current));
+      await loadHistory(historySearch);
+    } catch (err) {
+      setHistoryError(err.message || "删除历史记录失败，可能已被移除。");
+    } finally {
+      setHistoryActionLoading(false);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    const confirmed = window.confirm(
+      "确定要清空全部历史记录吗？此操作不可撤销。"
+    );
+    if (!confirmed) return;
+
+    setHistoryActionLoading(true);
+    setHistoryError("");
+
+    try {
+      await clearHistory();
+      setHistoryItems([]);
+      setHistoryTotal(0);
+      setSelectedHistory(null);
+      await loadHistory(historySearch);
+    } catch (err) {
+      setHistoryError(err.message || "清空历史记录失败");
+    } finally {
+      setHistoryActionLoading(false);
+    }
+  };
+
+  const historyEmptyTitle = activeHistorySearch
+    ? "未找到匹配的历史记录"
+    : "暂无历史记录，先完成一次翻译吧";
+  const historyEmptyDescription = activeHistorySearch
+    ? "换一个关键词再试试。"
+    : "完成翻译后，记录会自动保存在这里。";
+  const detailEmptyTitle =
+    historyItems.length === 0 ? historyEmptyTitle : "选择一条历史记录查看详情";
+  const detailEmptyDescription =
+    historyItems.length === 0 ? historyEmptyDescription : "详情会显示原文、译文和使用的风格。";
 
   return (
     <div className="page">
@@ -308,13 +403,22 @@ function App() {
                 最近 {historyItems.length} 条，匹配 {historyTotal} 条。
               </p>
             </div>
-            <button
-              className="secondary-button compact-button"
-              onClick={() => loadHistory(historySearch)}
-              disabled={historyLoading}
-            >
-              刷新
-            </button>
+            <div className="history-header-actions">
+              <button
+                className="secondary-button compact-button"
+                onClick={() => loadHistory(historySearch)}
+                disabled={historyLoading || historyActionLoading}
+              >
+                刷新
+              </button>
+              <button
+                className="danger-button compact-button"
+                onClick={handleClearHistory}
+                disabled={historyLoading || historyActionLoading}
+              >
+                清空全部
+              </button>
+            </div>
           </div>
 
           <form className="history-search" onSubmit={handleHistorySearch}>
@@ -324,7 +428,11 @@ function App() {
               onChange={(event) => setHistorySearch(event.target.value)}
               placeholder="搜索原文、译文、风格或语言"
             />
-            <button className="primary-button compact-button" type="submit">
+            <button
+              className="primary-button compact-button"
+              type="submit"
+              disabled={historyLoading || historyActionLoading}
+            >
               搜索
             </button>
           </form>
@@ -337,23 +445,40 @@ function App() {
                 <div className="history-empty">历史记录加载中...</div>
               ) : historyItems.length > 0 ? (
                 historyItems.map((item) => (
-                  <button
+                  <div
                     key={item.id}
                     className={`history-item ${
                       selectedHistory?.id === item.id ? "is-active" : ""
                     }`}
-                    onClick={() => handleSelectHistory(item.id)}
                   >
-                    <span className="history-item-text">
-                      {makeSnippet(item.source_text)}
-                    </span>
-                    <span className="history-item-meta">
-                      {item.style_applied} · {formatDateTime(item.created_at)}
-                    </span>
-                  </button>
+                    <button
+                      className="history-item-main"
+                      type="button"
+                      onClick={() => handleSelectHistory(item.id, item)}
+                      disabled={historyActionLoading}
+                    >
+                      <span className="history-item-text">
+                        {makeSnippet(item.source_text)}
+                      </span>
+                      <span className="history-item-meta">
+                        {item.style_applied} · {formatDateTime(item.created_at)}
+                      </span>
+                    </button>
+                    <button
+                      className="history-delete-button"
+                      type="button"
+                      onClick={() => handleDeleteHistory(item)}
+                      disabled={historyActionLoading}
+                    >
+                      删除
+                    </button>
+                  </div>
                 ))
               ) : (
-                <div className="history-empty">暂无历史记录</div>
+                <HistoryEmptyState
+                  title={historyEmptyTitle}
+                  description={historyEmptyDescription}
+                />
               )}
             </div>
 
@@ -395,9 +520,19 @@ function App() {
                   >
                     复用这条记录
                   </button>
+                  <button
+                    className="danger-button reuse-button"
+                    onClick={() => handleDeleteHistory(selectedHistory)}
+                    disabled={historyActionLoading}
+                  >
+                    删除这条记录
+                  </button>
                 </>
               ) : (
-                <div className="history-empty">点击一条历史记录查看详情</div>
+                <HistoryEmptyState
+                  title={detailEmptyTitle}
+                  description={detailEmptyDescription}
+                />
               )}
             </div>
           </div>

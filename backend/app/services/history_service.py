@@ -1,6 +1,6 @@
 from app.models.translation_history import TranslationHistory
-from app.schemas.history_schema import TranslationHistoryCreate
-from sqlalchemy import func, or_, select
+from app.schemas.history_schema import TranslationHistoryCreate, TranslationHistoryItem
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -85,3 +85,23 @@ async def get_history_record(
     history_id: int,
 ) -> TranslationHistory | None:
     return await session.get(TranslationHistory, history_id)
+
+
+async def delete_history_record(
+    session: AsyncSession,
+    history_id: int,
+) -> bool:
+    history: TranslationHistoryItem = await session.get(TranslationHistory, history_id)
+
+    if history is None:
+        return False
+
+    await session.delete(history)
+    await session.commit()
+    return True
+
+
+async def clear_history_records(session: AsyncSession) -> int:
+    result = await session.execute(delete(TranslationHistory))
+    await session.commit()
+    return result.rowcount or 0

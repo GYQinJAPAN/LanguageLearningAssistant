@@ -117,7 +117,11 @@ History endpoints:
 GET http://127.0.0.1:8000/api/v1/history?page=1&page_size=20
 GET http://127.0.0.1:8000/api/v1/history?q=hello
 GET http://127.0.0.1:8000/api/v1/history/{id}
+DELETE http://127.0.0.1:8000/api/v1/history/{id}
+DELETE http://127.0.0.1:8000/api/v1/history
 ```
+
+The delete endpoints remove one history record by ID or clear all local history records. The frontend asks for confirmation before either destructive action.
 
 Core translation endpoint:
 

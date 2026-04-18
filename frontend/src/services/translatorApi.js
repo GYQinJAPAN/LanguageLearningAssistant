@@ -102,3 +102,23 @@ export async function fetchHistory({ page = 1, pageSize = 10, q = "" } = {}) {
 export async function fetchHistoryDetail(id) {
   return requestJson(`${API_ENDPOINTS.history}/${id}`, undefined, "Failed to load history detail.");
 }
+
+export async function deleteHistoryRecord(id) {
+  return requestJson(
+    `${API_ENDPOINTS.history}/${id}`,
+    {
+      method: "DELETE",
+    },
+    "Failed to delete history record."
+  );
+}
+
+export async function clearHistory() {
+  return requestJson(
+    API_ENDPOINTS.history,
+    {
+      method: "DELETE",
+    },
+    "Failed to clear history."
+  );
+}
