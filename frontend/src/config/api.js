@@ -19,4 +19,5 @@ export const API_BASE_URL = normalizeBaseUrl(rawBaseUrl);
 export const API_ENDPOINTS = {
   styles: joinUrl(API_BASE_URL, "styles"),
   translate: joinUrl(API_BASE_URL, "translate"),
+  history: joinUrl(API_BASE_URL, "history"),
 };

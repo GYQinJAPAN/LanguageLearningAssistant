@@ -1,12 +1,12 @@
 # Language Learning Assistant
 
-本项目是一个本地可运行的 AI 翻译助手，当前阶段聚焦在基础翻译主流程：
+本项目是一个本地可运行的 AI 翻译助手，当前阶段聚焦在基础翻译主流程和本地历史记录持久化：
 
 - Backend: FastAPI
 - Frontend: React + Vite
 - LLM: OpenAI Chat Completions API
 
-第一阶段不包含数据库、登录、历史记录、收藏、调用次数统计或 prompt 管理后台。
+当前已支持 SQLite 本地历史记录；暂不包含登录、收藏、用户设置、复杂统计或 prompt 管理后台。
 
 ## Project Structure
 
@@ -14,11 +14,13 @@
 backend/
   app/
     core/          # settings and logger
+    models/        # SQLAlchemy models
     prompts/       # prompt txt files, used as translation styles
     routes/        # FastAPI routes
     schemas/       # request and response models
     services/      # LLM service
     utils/         # prompt manager
+  data/            # local SQLite database, ignored by Git
 frontend/
   src/
     config/        # frontend API config
@@ -55,6 +57,9 @@ OPENAI_MODEL=gpt-4o-mini
 OPENAI_TEMPERATURE=0.7
 OPENAI_MAX_TOKENS=300
 # OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Optional. Defaults to backend/data/app.db.
+# DATABASE_URL=sqlite+aiosqlite:///C:/absolute/path/to/app.db
 ```
 
 Start the backend:
@@ -76,6 +81,42 @@ API docs:
 
 ```text
 http://127.0.0.1:8000/docs
+```
+
+## Local Database
+
+This stage uses SQLite through SQLAlchemy async APIs.
+
+Default database file:
+
+```text
+backend/data/app.db
+```
+
+You can override it in `backend\.env`:
+
+```env
+DATABASE_URL=sqlite+aiosqlite:///C:/absolute/path/to/app.db
+```
+
+Initialization happens automatically on backend startup. The app runs `create_all` only, so it creates missing tables and does not delete old records.
+
+The SQLite file is ignored by Git via `backend/data/`, `*.db`, `*.sqlite`, and `*.sqlite3`.
+
+To clear local history data, stop the backend and delete:
+
+```powershell
+Remove-Item backend\data\app.db
+```
+
+Then start the backend again. The table will be recreated automatically.
+
+History endpoints:
+
+```text
+GET http://127.0.0.1:8000/api/v1/history?page=1&page_size=20
+GET http://127.0.0.1:8000/api/v1/history?q=hello
+GET http://127.0.0.1:8000/api/v1/history/{id}
 ```
 
 Core translation endpoint:

@@ -8,7 +8,7 @@ function formatDetail(detail) {
         return location ? `${location}: ${item.msg}` : item.msg;
       })
       .filter(Boolean)
-      .join("；");
+      .join("; ");
   }
 
   if (typeof detail === "string") {
@@ -32,8 +32,8 @@ async function parseJsonResponse(response) {
   const text = await response.text();
   throw new Error(
     text
-      ? `服务返回了非 JSON 响应：${text.slice(0, 120)}`
-      : "服务返回了非 JSON 响应。"
+      ? `Server returned a non-JSON response: ${text.slice(0, 120)}`
+      : "Server returned a non-JSON response."
   );
 }
 
@@ -41,14 +41,14 @@ function buildHttpError(response, data, fallbackMessage) {
   const detail = formatDetail(data?.detail);
 
   if (response.status === 422) {
-    return detail || "请求参数校验失败，请检查输入内容。";
+    return detail || "Request validation failed. Please check your input.";
   }
 
   if (response.status >= 500) {
-    return detail || "服务器内部错误，请稍后再试。";
+    return detail || "Server error. Please try again later.";
   }
 
-  return detail || fallbackMessage || `请求失败（HTTP ${response.status}）`;
+  return detail || fallbackMessage || `Request failed. HTTP ${response.status}.`;
 }
 
 async function requestJson(url, options, fallbackMessage) {
@@ -57,7 +57,7 @@ async function requestJson(url, options, fallbackMessage) {
   try {
     response = await fetch(url, options);
   } catch {
-    throw new Error("无法连接后端服务，请确认 FastAPI 已启动。");
+    throw new Error("Cannot connect to the backend service. Confirm FastAPI is running.");
   }
 
   const data = await parseJsonResponse(response);
@@ -70,7 +70,7 @@ async function requestJson(url, options, fallbackMessage) {
 }
 
 export async function fetchStyles() {
-  return requestJson(API_ENDPOINTS.styles, undefined, "获取风格列表失败。");
+  return requestJson(API_ENDPOINTS.styles, undefined, "Failed to load styles.");
 }
 
 export async function translateText(payload) {
@@ -83,6 +83,22 @@ export async function translateText(payload) {
       },
       body: JSON.stringify(payload),
     },
-    "翻译请求失败。"
+    "Translation request failed."
   );
+}
+
+export async function fetchHistory({ page = 1, pageSize = 10, q = "" } = {}) {
+  const url = new URL(API_ENDPOINTS.history);
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("page_size", String(pageSize));
+
+  if (q.trim()) {
+    url.searchParams.set("q", q.trim());
+  }
+
+  return requestJson(url.toString(), undefined, "Failed to load history.");
+}
+
+export async function fetchHistoryDetail(id) {
+  return requestJson(`${API_ENDPOINTS.history}/${id}`, undefined, "Failed to load history detail.");
 }

@@ -1,10 +1,14 @@
 import logging
 
 from app.core.config import settings
+from app.core.database import get_db_session
+from app.schemas.history_schema import TranslationHistoryCreate
 from app.schemas.translate_schema import TranslateRequest, TranslateResponse
+from app.services.history_service import create_history_record
 from app.services.llm_service import translate_and_rewrite
 from app.utils.prompt_manager import PromptManager
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 router: APIRouter = APIRouter(prefix=settings.api_prefix, tags=["Translation"])
@@ -12,7 +16,10 @@ prompt_manager: PromptManager = PromptManager()
 
 
 @router.post("/translate", response_model=TranslateResponse)
-async def translate_endpoint(request: TranslateRequest):
+async def translate_endpoint(
+    request: TranslateRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
     try:
         actual_style, prompt_template = prompt_manager.load_prompt(request.style)
 
@@ -27,7 +34,7 @@ async def translate_endpoint(request: TranslateRequest):
             system_prompt=system_prompt,
         )
 
-        return TranslateResponse(
+        response = TranslateResponse(
             original_text=request.text,
             translated_text=result_text,
             style_requested=request.style,
@@ -35,6 +42,20 @@ async def translate_endpoint(request: TranslateRequest):
             source_lang=request.source_lang,
             target_lang=request.target_lang,
         )
+
+        await create_history_record(
+            session=session,
+            payload=TranslationHistoryCreate(
+                source_text=response.original_text,
+                translated_text=response.translated_text,
+                style_requested=response.style_requested,
+                style_applied=response.style_applied,
+                source_lang=response.source_lang,
+                target_lang=response.target_lang,
+            ),
+        )
+
+        return response
 
     except ValueError as exc:
         logger.warning("Invalid translate request: %s", exc)
