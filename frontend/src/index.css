@@ -1,0 +1,23 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  font-family:
+    Inter,
+    "Noto Sans JP",
+    "Hiragino Sans",
+    "Microsoft YaHei",
+    Arial,
+    sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(124, 58, 237, 0.12), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.12), transparent 30%),
+    linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+  color: #0f172a;
+}
