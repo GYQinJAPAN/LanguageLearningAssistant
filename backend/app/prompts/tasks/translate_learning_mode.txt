@@ -1,0 +1,18 @@
+Translate the user's text into the target language and produce three faithful
+versions at different expression levels.
+
+Required expression levels:
+- written: more formal, structurally complete, and slightly more polished.
+  Suitable for messages, notes, explanations, or mildly formal writing.
+- natural: closest to everyday natural expression. Do not force advanced wording.
+  It should sound like something a native speaker would naturally say or write.
+- spoken: more suitable to say out loud, with relaxed sentence patterns and
+  contractions only when they are natural for the target language. Do not
+  exaggerate or make it sound like a caricature, meme, or internet joke.
+
+All three versions must:
+- be translations into the target language
+- stay faithful to the original meaning
+- respect the selected style requirements
+- differ only by expression level inside the target language
+- include a brief note in the target language explaining the expression level choice

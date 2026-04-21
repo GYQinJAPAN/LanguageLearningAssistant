@@ -11,6 +11,17 @@ import {
 
 const HISTORY_PAGE_SIZE = 10;
 
+const resultModeOptions = [
+  { value: "single", label: "普通模式" },
+  { value: "learning", label: "学习模式" },
+];
+
+const variantLabelFallback = {
+  written: "书面版",
+  natural: "自然版",
+  spoken: "口语版",
+};
+
 const languageOptions = [
   { value: "auto", label: "自动识别" },
   { value: "Chinese", label: "中文" },
@@ -37,6 +48,10 @@ function makeSnippet(value, maxLength = 72) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
+function getNaturalVariant(variants) {
+  return variants.find((variant) => variant.variant_type === "natural") || variants[0];
+}
+
 function HistoryEmptyState({ title, description }) {
   return (
     <div className="history-empty-state">
@@ -52,11 +67,13 @@ function App() {
   const [style, setStyle] = useState("base_prompt");
   const [sourceLang, setSourceLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("English");
+  const [resultMode, setResultMode] = useState("single");
 
   const [styleOptions, setStyleOptions] = useState([]);
   const [stylesLoading, setStylesLoading] = useState(true);
 
   const [result, setResult] = useState("");
+  const [learningVariants, setLearningVariants] = useState([]);
   const [styleApplied, setStyleApplied] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -166,6 +183,7 @@ function App() {
     setLoading(true);
     setError("");
     setResult("");
+    setLearningVariants([]);
     setStyleApplied("");
     setCopyMessage("");
 
@@ -175,9 +193,16 @@ function App() {
         style,
         source_lang: sourceLang,
         target_lang: targetLang,
+        result_mode: resultMode,
       });
 
-      setResult(data.translated_text || "");
+      const variants = data.variants || [];
+      setLearningVariants(variants);
+      setResult(
+        resultMode === "learning" && variants.length > 0
+          ? getNaturalVariant(variants).translated_text || data.translated_text || ""
+          : data.translated_text || ""
+      );
       setStyleApplied(data.style_applied || "");
       await loadHistory(historySearch);
     } catch (err) {
@@ -212,6 +237,8 @@ function App() {
     setSourceLang(record.source_lang || "auto");
     setTargetLang(record.target_lang || "English");
     setResult(record.translated_text || "");
+    setLearningVariants(record.variants || []);
+    setResultMode(record.variants?.length ? "learning" : "single");
     setStyleApplied(record.style_applied || "");
     setError("");
     setCopyMessage("");
@@ -219,6 +246,16 @@ function App() {
     if (styleOptions.some((item) => item.key === record.style_requested)) {
       setStyle(record.style_requested);
     }
+  };
+
+  const handleUseVariantAsResult = (variant) => {
+    setResult(variant.translated_text || "");
+    setCopyMessage("");
+  };
+
+  const handleUseVariantAsInput = (variant) => {
+    setText(variant.translated_text || "");
+    setCopyMessage("");
   };
 
   const handleDeleteHistory = async (record) => {
@@ -328,6 +365,24 @@ function App() {
           </div>
 
           <div className="field">
+            <label className="label">结果模式</label>
+            <div className="mode-toggle" role="group" aria-label="结果模式">
+              {resultModeOptions.map((item) => (
+                <button
+                  key={item.value}
+                  className={`mode-button ${
+                    resultMode === item.value ? "is-active" : ""
+                  }`}
+                  type="button"
+                  onClick={() => setResultMode(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
             <label className="label">源语言</label>
             <select
               className="select"
@@ -382,7 +437,9 @@ function App() {
 
         <div className="result-section">
           <div className="result-header">
-            <label className="label">翻译结果</label>
+            <label className="label">
+              {resultMode === "learning" ? "当前结果" : "翻译结果"}
+            </label>
             {styleApplied && (
               <span className="result-tag">实际生效风格：{styleApplied}</span>
             )}
@@ -391,6 +448,39 @@ function App() {
           <div className={`result-box ${result ? "has-result" : ""}`}>
             {result || "这里会显示翻译结果"}
           </div>
+
+          {learningVariants.length > 0 && (
+            <div className="variant-grid">
+              {learningVariants.map((variant) => (
+                <div className="variant-card" key={variant.variant_type}>
+                  <div className="variant-card-header">
+                    <strong>
+                      {variant.label || variantLabelFallback[variant.variant_type]}
+                    </strong>
+                    <span>{variant.variant_type}</span>
+                  </div>
+                  <p className="variant-note">{variant.short_note}</p>
+                  <p className="variant-text">{variant.translated_text}</p>
+                  <div className="variant-actions">
+                    <button
+                      className="secondary-button compact-button"
+                      type="button"
+                      onClick={() => handleUseVariantAsResult(variant)}
+                    >
+                      设为结果
+                    </button>
+                    <button
+                      className="secondary-button compact-button muted-button"
+                      type="button"
+                      onClick={() => handleUseVariantAsInput(variant)}
+                    >
+                      填入输入
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {copyMessage && <div className="copy-message">{copyMessage}</div>}
         </div>
@@ -514,6 +604,22 @@ function App() {
                     <span>译文</span>
                     <p>{selectedHistory.translated_text}</p>
                   </div>
+                  {selectedHistory.variants?.length > 0 && (
+                    <div className="history-variants">
+                      <span>学习模式版本</span>
+                      {selectedHistory.variants.map((variant) => (
+                        <div className="history-variant-card" key={variant.id}>
+                          <strong>
+                            {variant.label || variantLabelFallback[variant.variant_type]}
+                          </strong>
+                          <p className="history-variant-note">
+                            {variant.short_note}
+                          </p>
+                          <p>{variant.translated_text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button
                     className="secondary-button reuse-button"
                     onClick={() => handleReuseHistory(selectedHistory)}

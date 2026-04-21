@@ -5,5 +5,3 @@ Requirements:
 2. Use clear, concise, polished, and professional wording.
 3. Make the result suitable for work, business, or formal communication.
 4. Avoid slang and overly emotional expressions.
-5. Do not add explanations, notes, or quotation marks.
-6. Output only the final translated text.

@@ -16,8 +16,14 @@ class PromptManager:
     BUILTIN_FALLBACK_STYLE = "default_builtin"
     BUILTIN_FALLBACK_PROMPT = (
         "You are a professional translation assistant.\n"
-        "Translate the user's text accurately and naturally into the target language.\n"
-        "Output only the final translated text."
+        "Translate the user's text accurately and naturally into the target language."
+    )
+    TASK_DIR_NAME = "tasks"
+    TASK_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+    BUILTIN_SINGLE_TASK = (
+        "Translate the user's text into the target language accurately and naturally.\n"
+        "Do not add explanations, notes, or quotation marks.\n"
+        "Output only the final translated result."
     )
     STYLE_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
@@ -44,6 +50,18 @@ class PromptManager:
             raise ValueError("style 路径不合法。")
         return prompt_path
 
+    def _task_path_for(self, task_name: str) -> Path:
+        """Return a task template path and reject paths outside the task dir."""
+        task_key = task_name.strip()
+        if not self.TASK_KEY_PATTERN.fullmatch(task_key):
+            raise ValueError("task template 格式不合法。")
+
+        task_dir = (self.prompt_dir / self.TASK_DIR_NAME).resolve()
+        task_path = (task_dir / f"{task_key}.txt").resolve()
+        if task_path.parent != task_dir:
+            raise ValueError("task template 路径不合法。")
+        return task_path
+
     def load_prompt(self, style_name: str) -> tuple[str, str]:
         """Load the requested prompt or fall back only for valid missing styles."""
         style_key = self.validate_style_key(style_name)
@@ -65,26 +83,48 @@ class PromptManager:
         logger.warning("Default prompt file was not found. Using built-in fallback.")
         return self.BUILTIN_FALLBACK_STYLE, self.BUILTIN_FALLBACK_PROMPT
 
+    def load_task_template(self, task_name: str) -> str:
+        """Load a task template used with a style prompt."""
+        task_path = self._task_path_for(task_name)
+        if task_path.exists():
+            return task_path.read_text(encoding="utf-8")
+
+        if task_name == "translate_single":
+            logger.warning("Single-translation task template was not found. Using built-in fallback.")
+            return self.BUILTIN_SINGLE_TASK
+
+        raise ValueError(f"task template 不存在：{task_name}")
+
     def build_system_prompt(
         self,
-        prompt_template: str,
+        style_template: str,
+        task_template: str,
         source_lang: str,
         target_lang: str,
     ) -> str:
         """Build the final system prompt sent to the LLM."""
         return f"""
-                {prompt_template}
+                Style requirements:
+                {style_template}
 
                 Translation settings:
                 - Source language: {source_lang}
                 - Target language: {target_lang}
 
-                Instructions:
+                Shared instructions:
                 - If source language is 'auto', detect the source language
                   automatically.
-                - Translate the user's text into the target language accurately
-                  and naturally.
-                - Output only the final translated result.
+                - Translate from the source language into the target language.
+                - The target language is mandatory. Every translated result must
+                  be written in the target language, not rewritten in the source
+                  language.
+                - If the target language is Japanese or 日语, every translated
+                  result must be Japanese.
+                - Preserve the original meaning faithfully.
+                - Apply the selected style requirements to every translated result.
+
+                Task instructions:
+                {task_template}
                 """.strip()
 
     def list_styles(self) -> list[str]:

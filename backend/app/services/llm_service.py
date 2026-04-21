@@ -30,21 +30,27 @@ def get_openai_client() -> AsyncOpenAI:
 async def translate_and_rewrite(
     user_text: str,
     system_prompt: str,
+    max_output_tokens: int | None = None,
+    text_format: dict | None = None,
 ) -> str:
     """Send the prompt and user text to the LLM and return the final text."""
     try:
-        response = await get_openai_client().chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_text},
-            ],
-            temperature=settings.OPENAI_TEMPERATURE,
-            max_tokens=settings.OPENAI_MAX_TOKENS,
+        response_options = {
+            "model": settings.OPENAI_MODEL,
+            "instructions": system_prompt,
+            "input": user_text,
+            "temperature": settings.OPENAI_TEMPERATURE,
+            "max_output_tokens": max_output_tokens or settings.OPENAI_MAX_TOKENS,
+        }
+        if text_format:
+            response_options["text"] = {"format": text_format}
+
+        response = await get_openai_client().responses.create(
+            **response_options,
         )
 
-        content = response.choices[0].message.content
-        return content.strip() if content else ""
+        content = (response.output_text or "").strip()
+        return content
 
     except RuntimeError:
         raise

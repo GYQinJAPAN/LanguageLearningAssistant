@@ -1,12 +1,12 @@
 # Language Learning Assistant
 
-本项目是一个本地可运行的 AI 翻译助手，当前阶段聚焦在基础翻译主流程和本地历史记录持久化：
+本项目是一个本地可运行的 AI 翻译助手，当前阶段聚焦在基础翻译主流程、学习模式多结果生成和本地历史记录持久化：
 
 - Backend: FastAPI
 - Frontend: React + Vite
 - LLM: OpenAI Chat Completions API
 
-当前已支持 SQLite 本地历史记录；暂不包含登录、收藏、用户设置、复杂统计或 prompt 管理后台。
+当前已支持 SQLite 本地历史记录和学习模式三版本翻译；暂不包含登录、收藏、用户设置、口语提示、复杂统计或 prompt 管理后台。
 
 ## Project Structure
 
@@ -15,7 +15,7 @@ backend/
   app/
     core/          # settings and logger
     models/        # SQLAlchemy models
-    prompts/       # prompt txt files, used as translation styles
+    prompts/       # style prompts and task templates
     routes/        # FastAPI routes
     schemas/       # request and response models
     services/      # LLM service
@@ -101,6 +101,11 @@ DATABASE_URL=sqlite+aiosqlite:///C:/absolute/path/to/app.db
 
 Initialization happens automatically on backend startup. The app runs `create_all` only, so it creates missing tables and does not delete old records.
 
+Tables:
+
+- `translation_history`: main source text, translated text, style, language, and timestamp.
+- `translation_variants`: learning-mode versions linked by `history_id`; fields include `variant_type`, `translated_text`, `short_note`, `sort_order`, and `created_at`.
+
 The SQLite file is ignored by Git via `backend/data/`, `*.db`, `*.sqlite`, and `*.sqlite3`.
 
 To clear local history data, stop the backend and delete:
@@ -136,9 +141,12 @@ The compatible request fields are:
   "text": "你好",
   "style": "base_prompt",
   "source_lang": "auto",
-  "target_lang": "English"
+  "target_lang": "English",
+  "result_mode": "single"
 }
 ```
+
+`result_mode` is optional and defaults to `single`. In single mode, the response keeps the original success fields.
 
 The compatible success response fields are:
 
@@ -150,6 +158,52 @@ The compatible success response fields are:
   "style_applied": "base_prompt",
   "source_lang": "auto",
   "target_lang": "English"
+}
+```
+
+Learning mode uses the same endpoint:
+
+```json
+{
+  "text": "我今天有点累，但是还是想和你聊天。",
+  "style": "casual",
+  "source_lang": "auto",
+  "target_lang": "English",
+  "result_mode": "learning"
+}
+```
+
+The learning-mode response keeps `translated_text` as the natural version and adds `variants`:
+
+```json
+{
+  "original_text": "我今天有点累，但是还是想和你聊天。",
+  "translated_text": "I'm a bit tired today, but I still want to chat with you.",
+  "style_requested": "casual",
+  "style_applied": "casual",
+  "source_lang": "auto",
+  "target_lang": "English",
+  "result_mode": "learning",
+  "variants": [
+    {
+      "variant_type": "written",
+      "label": "书面版",
+      "translated_text": "I'm feeling a little tired today, but I would still like to talk with you.",
+      "short_note": "More complete and slightly more polished."
+    },
+    {
+      "variant_type": "natural",
+      "label": "自然版",
+      "translated_text": "I'm a bit tired today, but I still want to chat with you.",
+      "short_note": "Closest to everyday natural expression."
+    },
+    {
+      "variant_type": "spoken",
+      "label": "口语版",
+      "translated_text": "I'm kinda tired today, but I still wanna talk to you.",
+      "short_note": "More relaxed and easy to say out loud."
+    }
+  ]
 }
 ```
 
@@ -218,3 +272,14 @@ Examples:
 - `professional.txt`
 
 Style keys must contain only letters, numbers, underscores, or short hyphens. Invalid style keys return a 422 response. If a valid style key is requested but the prompt file is missing, the backend falls back to `base_prompt` and records a warning log.
+
+Task templates are stored separately from style prompts:
+
+```text
+backend/app/prompts/tasks/translate_single.txt
+backend/app/prompts/tasks/translate_learning_mode.txt
+```
+
+The backend combines one style prompt with one task template for each translation request. Style controls tone; `result_mode` controls whether the task returns one result or written/natural/spoken variants.
+
+Learning-mode prompt files describe the translation task and expression-level differences only. The JSON output shape, allowed `variant_type` values, ordering, and display labels are controlled in backend Python code and response schemas.
