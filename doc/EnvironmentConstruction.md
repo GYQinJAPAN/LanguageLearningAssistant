@@ -354,4 +354,22 @@ Vite 官方的创建方式就是通过 create vite 来初始化项目。
 - 另一种是新建一个临时前端目录测试，跑通后再并回你的项目。
 
 
+# 防止commmit失败设定 
+建议在项目根目录放一个 .gitattributes，统一规则，例如：
+
+* text=auto
+
+*.py text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+
+然后全局 Git 可以设成：
+```git config --global core.autocrlf false```
+
+
+这样以后通常会更稳定。
 
