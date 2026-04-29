@@ -1,6 +1,6 @@
 """Database operations for translation history records."""
 
-from app.models.translation_history import TranslationHistory, TranslationVariant
+from app.models.translation_history import SpeakingTip, TranslationHistory, TranslationVariant
 from app.schemas.history_schema import (
     TranslationHistoryCreate,
     TranslationVariantCreate,
@@ -94,6 +94,8 @@ async def delete_history_record(
     if history is None:
         return False
 
+    variant_ids = select(TranslationVariant.id).where(TranslationVariant.history_id == history_id)
+    await session.execute(delete(SpeakingTip).where(SpeakingTip.variant_id.in_(variant_ids)))
     await session.execute(delete(TranslationVariant).where(TranslationVariant.history_id == history_id))
     await session.delete(history)
     await session.commit()
@@ -102,6 +104,7 @@ async def delete_history_record(
 
 async def clear_history_records(session: AsyncSession) -> int:
     """Delete all history records and return the number of removed rows."""
+    await session.execute(delete(SpeakingTip))
     await session.execute(delete(TranslationVariant))
     result = await session.execute(delete(TranslationHistory))
     await session.commit()

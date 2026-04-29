@@ -1,4 +1,3 @@
-from app.models.translation_history import TranslationHistory, TranslationVariant
+from app.models.translation_history import SpeakingTip, TranslationHistory, TranslationVariant
 
-# 将子模块中的类提升到包级别
-__all__ = ["TranslationHistory", "TranslationVariant"]
+__all__ = ["TranslationHistory", "TranslationVariant", "SpeakingTip"]

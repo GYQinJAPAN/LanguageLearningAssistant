@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.logger import setup_logging
-from app.routes import history_routes, style_routes, translate_routes
+from app.routes import history_routes, speaking_tips_routes, style_routes, translate_routes
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -46,6 +46,7 @@ app.add_middleware(
 app.include_router(translate_routes.router)
 app.include_router(style_routes.router)
 app.include_router(history_routes.router)
+app.include_router(speaking_tips_routes.router)
 
 
 @app.get("/")

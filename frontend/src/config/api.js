@@ -20,4 +20,6 @@ export const API_ENDPOINTS = {
   styles: joinUrl(API_BASE_URL, "styles"),
   translate: joinUrl(API_BASE_URL, "translate"),
   history: joinUrl(API_BASE_URL, "history"),
+  variantSpeakingTips: (variantId) =>
+    joinUrl(API_BASE_URL, `variants/${variantId}/speaking-tips`),
 };

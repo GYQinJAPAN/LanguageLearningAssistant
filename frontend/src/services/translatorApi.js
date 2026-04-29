@@ -122,3 +122,13 @@ export async function clearHistory() {
     "Failed to clear history."
   );
 }
+
+export async function fetchSpeakingTips(variantId) {
+  return requestJson(
+    API_ENDPOINTS.variantSpeakingTips(variantId),
+    {
+      method: "POST",
+    },
+    "Failed to load speaking tips."
+  );
+}

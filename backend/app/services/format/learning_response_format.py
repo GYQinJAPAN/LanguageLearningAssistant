@@ -42,24 +42,3 @@ LEARNING_VARIANT_RESPONSE_FORMAT = {
         },
     },
 }
-"""
-{
-  "variants": [
-    {
-      "variant_type": "written",
-      "translated_text": "...",
-      "short_note": "..."
-    },
-    {
-      "variant_type": "natural",
-      "translated_text": "...",
-      "short_note": "..."
-    },
-    {
-      "variant_type": "spoken",
-      "translated_text": "...",
-      "short_note": "..."
-    }
-  ]
-}
-"""

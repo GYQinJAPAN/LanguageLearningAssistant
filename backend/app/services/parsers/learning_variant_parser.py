@@ -1,5 +1,5 @@
 from app.schemas.translate_schema import TranslationVariant
-from app.services.learning_response_format import VARIANT_LABELS, VARIANT_ORDER
+from app.services.format.learning_response_format import VARIANT_LABELS, VARIANT_ORDER
 from app.utils.json_payload import extract_json_payload
 
 

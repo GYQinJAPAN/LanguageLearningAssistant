@@ -5,11 +5,13 @@ import {
   deleteHistoryRecord,
   fetchHistory,
   fetchHistoryDetail,
+  fetchSpeakingTips,
   fetchStyles,
   translateText,
 } from "./services/translatorApi";
 
 const HISTORY_PAGE_SIZE = 10;
+const THEME_STORAGE_KEY = "translator-theme";
 
 const resultModeOptions = [
   { value: "single", label: "普通模式" },
@@ -28,6 +30,12 @@ const languageOptions = [
   { value: "English", label: "英语" },
   { value: "Japanese", label: "日语" },
   { value: "Korean", label: "韩语" },
+];
+
+const themeOptions = [
+  { value: "cool", label: "清爽" },
+  { value: "warm", label: "暖色" },
+  { value: "violet", label: "柔紫" },
 ];
 
 function formatDateTime(value) {
@@ -52,6 +60,41 @@ function getNaturalVariant(variants) {
   return variants.find((variant) => variant.variant_type === "natural") || variants[0];
 }
 
+function getVariantKey(variant) {
+  return variant.variant_id ?? variant.id ?? variant.variant_type;
+}
+
+function getVariantRequestId(variant) {
+  return variant.variant_id ?? variant.id ?? null;
+}
+
+function isEnglishTargetLanguage(value) {
+  const normalized = value?.trim();
+  if (!normalized) return false;
+
+  if (normalized === "英语" || normalized === "英文") {
+    return true;
+  }
+
+  const lowered = normalized.toLowerCase().replace(/_/g, "-");
+  return (
+    lowered === "english" ||
+    lowered === "en" ||
+    lowered === "en-us" ||
+    lowered === "en-gb" ||
+    lowered.startsWith("english")
+  );
+}
+
+function getInitialTheme() {
+  if (typeof window === "undefined") {
+    return "cool";
+  }
+
+  const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return themeOptions.some((item) => item.value === savedTheme) ? savedTheme : "cool";
+}
+
 function HistoryEmptyState({ title, description }) {
   return (
     <div className="history-empty-state">
@@ -63,6 +106,7 @@ function HistoryEmptyState({ title, description }) {
 }
 
 function App() {
+  const [theme, setTheme] = useState(getInitialTheme);
   const [text, setText] = useState("");
   const [style, setStyle] = useState("base_prompt");
   const [sourceLang, setSourceLang] = useState("auto");
@@ -79,6 +123,12 @@ function App() {
   const [error, setError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
 
+  const [speakingTipsByVariant, setSpeakingTipsByVariant] = useState({});
+  const [speakingTipsLoading, setSpeakingTipsLoading] = useState({});
+  const [speakingTipsError, setSpeakingTipsError] = useState({});
+  const [focusedVariantKey, setFocusedVariantKey] = useState(null);
+  const [tipsExpandedVariantKey, setTipsExpandedVariantKey] = useState(null);
+
   const [historyItems, setHistoryItems] = useState([]);
   const [historySearch, setHistorySearch] = useState("");
   const [activeHistorySearch, setActiveHistorySearch] = useState("");
@@ -88,6 +138,18 @@ function App() {
   const [historyActionLoading, setHistoryActionLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [selectedHistory, setSelectedHistory] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+  }, [theme]);
+
+  const handleCycleTheme = () => {
+    const currentIndex = themeOptions.findIndex((item) => item.value === theme);
+    const nextTheme = themeOptions[(currentIndex + 1) % themeOptions.length];
+    setTheme(nextTheme.value);
+  };
 
   const loadStyles = useCallback(async () => {
     setStylesLoading(true);
@@ -165,14 +227,19 @@ function App() {
       return;
     }
 
-    const selectedStillVisible = historyItems.some(
-      (item) => item.id === selectedHistory?.id
-    );
-
+    const selectedStillVisible = historyItems.some((item) => item.id === selectedHistory?.id);
     if (!selectedStillVisible) {
       handleSelectHistory(historyItems[0].id, historyItems[0]);
     }
   }, [handleSelectHistory, historyItems, historyLoading, selectedHistory?.id]);
+
+  const resetSpeakingTipsState = () => {
+    setSpeakingTipsByVariant({});
+    setSpeakingTipsLoading({});
+    setSpeakingTipsError({});
+    setFocusedVariantKey(null);
+    setTipsExpandedVariantKey(null);
+  };
 
   const handleTranslate = async () => {
     if (!text.trim()) {
@@ -186,6 +253,7 @@ function App() {
     setLearningVariants([]);
     setStyleApplied("");
     setCopyMessage("");
+    resetSpeakingTipsState();
 
     try {
       const data = await translateText({
@@ -242,6 +310,7 @@ function App() {
     setStyleApplied(record.style_applied || "");
     setError("");
     setCopyMessage("");
+    resetSpeakingTipsState();
 
     if (styleOptions.some((item) => item.key === record.style_requested)) {
       setStyle(record.style_requested);
@@ -256,6 +325,48 @@ function App() {
   const handleUseVariantAsInput = (variant) => {
     setText(variant.translated_text || "");
     setCopyMessage("");
+  };
+
+  const handleShowSpeakingTips = async (variant) => {
+    const variantKey = getVariantKey(variant);
+    const variantId = getVariantRequestId(variant);
+
+    setFocusedVariantKey(variantKey);
+    setTipsExpandedVariantKey(variantKey);
+
+    if (!variantId || speakingTipsByVariant[variantId]) {
+      return;
+    }
+
+    setSpeakingTipsLoading((current) => ({ ...current, [variantId]: true }));
+    setSpeakingTipsError((current) => ({ ...current, [variantId]: "" }));
+
+    try {
+      const data = await fetchSpeakingTips(variantId);
+      setSpeakingTipsByVariant((current) => ({ ...current, [variantId]: data }));
+    } catch (err) {
+      setSpeakingTipsError((current) => ({
+        ...current,
+        [variantId]: err.message || "加载口语提示失败",
+      }));
+    } finally {
+      setSpeakingTipsLoading((current) => ({ ...current, [variantId]: false }));
+    }
+  };
+
+  const handleToggleTips = (variant) => {
+    const variantKey = getVariantKey(variant);
+    if (tipsExpandedVariantKey === variantKey) {
+      setTipsExpandedVariantKey(null);
+      return;
+    }
+
+    void handleShowSpeakingTips(variant);
+  };
+
+  const handleBackToVariants = () => {
+    setFocusedVariantKey(null);
+    setTipsExpandedVariantKey(null);
   };
 
   const handleDeleteHistory = async (record) => {
@@ -281,9 +392,7 @@ function App() {
   };
 
   const handleClearHistory = async () => {
-    const confirmed = window.confirm(
-      "确定要清空全部历史记录吗？此操作不可撤销。"
-    );
+    const confirmed = window.confirm("确定要清空全部历史记录吗？此操作不可撤销。");
     if (!confirmed) return;
 
     setHistoryActionLoading(true);
@@ -312,15 +421,27 @@ function App() {
     historyItems.length === 0 ? historyEmptyTitle : "选择一条历史记录查看详情";
   const detailEmptyDescription =
     historyItems.length === 0 ? historyEmptyDescription : "详情会显示原文、译文和使用的风格。";
+  const showSpeakingTipsButton = resultMode === "learning" && isEnglishTargetLanguage(targetLang);
+  const displayedLearningVariants =
+    focusedVariantKey === null
+      ? learningVariants
+      : learningVariants.filter((variant) => getVariantKey(variant) === focusedVariantKey);
+  const currentThemeLabel =
+    themeOptions.find((item) => item.value === theme)?.label || themeOptions[0].label;
 
   return (
-    <div className="page">
+    <div className={`page theme-${theme}`}>
       <div className="background-glow glow-1"></div>
       <div className="background-glow glow-2"></div>
 
       <div className="card">
         <div className="header">
-          <div className="badge">AI Translator</div>
+          <div className="header-top">
+            <div className="badge">AI Translator</div>
+            <button className="theme-button" type="button" onClick={handleCycleTheme}>
+              主题：{currentThemeLabel}
+            </button>
+          </div>
           <h1>多语言聊天翻译助手</h1>
           <p className="subtitle">
             把原文转换成更自然、更符合目标语言表达习惯的内容。
@@ -370,9 +491,7 @@ function App() {
               {resultModeOptions.map((item) => (
                 <button
                   key={item.value}
-                  className={`mode-button ${
-                    resultMode === item.value ? "is-active" : ""
-                  }`}
+                  className={`mode-button ${resultMode === item.value ? "is-active" : ""}`}
                   type="button"
                   onClick={() => setResultMode(item.value)}
                 >
@@ -424,11 +543,7 @@ function App() {
             {loading ? "生成中..." : "开始翻译"}
           </button>
 
-          <button
-            className="secondary-button"
-            onClick={handleCopy}
-            disabled={!result}
-          >
+          <button className="secondary-button" onClick={handleCopy} disabled={!result}>
             复制结果
           </button>
         </div>
@@ -437,12 +552,8 @@ function App() {
 
         <div className="result-section">
           <div className="result-header">
-            <label className="label">
-              {resultMode === "learning" ? "当前结果" : "翻译结果"}
-            </label>
-            {styleApplied && (
-              <span className="result-tag">实际生效风格：{styleApplied}</span>
-            )}
+            <label className="label">{resultMode === "learning" ? "当前结果" : "翻译结果"}</label>
+            {styleApplied && <span className="result-tag">实际生效风格：{styleApplied}</span>}
           </div>
 
           <div className={`result-box ${result ? "has-result" : ""}`}>
@@ -450,35 +561,129 @@ function App() {
           </div>
 
           {learningVariants.length > 0 && (
-            <div className="variant-grid">
-              {learningVariants.map((variant) => (
-                <div className="variant-card" key={variant.variant_type}>
-                  <div className="variant-card-header">
-                    <strong>
-                      {variant.label || variantLabelFallback[variant.variant_type]}
-                    </strong>
-                    <span>{variant.variant_type}</span>
+            <div className={`variant-grid ${focusedVariantKey !== null ? "is-focused" : ""}`}>
+              {displayedLearningVariants.map((variant) => {
+                const variantKey = getVariantKey(variant);
+                const variantId = getVariantRequestId(variant);
+                const isFocused = focusedVariantKey === variantKey;
+                const isTipsExpanded = tipsExpandedVariantKey === variantKey;
+                const tips = variantId ? speakingTipsByVariant[variantId] : null;
+                const tipsError = variantId ? speakingTipsError[variantId] : "";
+                const tipsLoading = variantId ? Boolean(speakingTipsLoading[variantId]) : false;
+
+                return (
+                  <div
+                    className={`variant-card ${isFocused ? "is-focused" : ""}`}
+                    key={variantKey}
+                  >
+                    <div className="variant-card-header">
+                      <strong>
+                        {variant.label || variantLabelFallback[variant.variant_type]}
+                      </strong>
+                      <span>{variant.variant_type}</span>
+                    </div>
+                    <p className="variant-note">{variant.short_note}</p>
+                    <p className="variant-text">{variant.translated_text}</p>
+
+                    <div className="variant-actions">
+                      <button
+                        className="card-action-button is-primary"
+                        type="button"
+                        onClick={() => handleUseVariantAsResult(variant)}
+                      >
+                        设为结果
+                      </button>
+                      <button
+                        className="card-action-button is-secondary"
+                        type="button"
+                        onClick={() => handleUseVariantAsInput(variant)}
+                      >
+                        填入输入
+                      </button>
+                      {showSpeakingTipsButton && variantId && (
+                        <button
+                          className="card-action-button is-accent"
+                          type="button"
+                          onClick={() => handleToggleTips(variant)}
+                          disabled={tipsLoading}
+                        >
+                          {tipsLoading ? "加载中..." : isTipsExpanded ? "收起提示" : "口语提示"}
+                        </button>
+                      )}
+                      {isFocused && (
+                        <button
+                          className="card-action-button is-ghost"
+                          type="button"
+                          onClick={handleBackToVariants}
+                        >
+                          返回三版本
+                        </button>
+                      )}
+                    </div>
+
+                    {isFocused && isTipsExpanded && (
+                      <div className="speaking-tips-panel is-focused">
+                        <div className="speaking-tips-header">
+                          <strong>Speak Tips</strong>
+                          <span className="speaking-tips-chip">
+                            {variant.label || variantLabelFallback[variant.variant_type]}
+                          </span>
+                        </div>
+
+                        {tipsError ? (
+                          <div className="speaking-tips-error">{tipsError}</div>
+                        ) : tips ? (
+                          <div className="speaking-tips-layout">
+                            <div className="speaking-tips-block">
+                              <span>重读词</span>
+                              <div className="speaking-tips-tags">
+                                {(tips.stress_words || []).map((word) => (
+                                  <span className="speaking-tips-tag" key={word}>
+                                    {word}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="speaking-tips-block">
+                              <span>连读提醒</span>
+                              {(tips.linking_notes || []).length > 0 ? (
+                                <div className="speaking-tips-list">
+                                  {tips.linking_notes.map((item) => (
+                                    <div
+                                      className="speaking-tips-list-item"
+                                      key={`${item.phrase}-${item.tip}`}
+                                    >
+                                      <strong>{item.phrase}</strong>
+                                      <p>{item.tip}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="speaking-tips-empty">暂无特别连读提醒</p>
+                              )}
+                            </div>
+
+                            <div className="speaking-tips-block">
+                              <span>更口语的说法</span>
+                              <p>{tips.more_spoken_text}</p>
+                            </div>
+
+                            <div className="speaking-tips-block">
+                              <span>小提示</span>
+                              <p>{tips.note_text}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="speaking-tips-empty">
+                            {tipsLoading ? "口语提示加载中..." : "点击按钮查看口语提示"}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="variant-note">{variant.short_note}</p>
-                  <p className="variant-text">{variant.translated_text}</p>
-                  <div className="variant-actions">
-                    <button
-                      className="secondary-button compact-button"
-                      type="button"
-                      onClick={() => handleUseVariantAsResult(variant)}
-                    >
-                      设为结果
-                    </button>
-                    <button
-                      className="secondary-button compact-button muted-button"
-                      type="button"
-                      onClick={() => handleUseVariantAsInput(variant)}
-                    >
-                      填入输入
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -537,9 +742,7 @@ function App() {
                 historyItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`history-item ${
-                      selectedHistory?.id === item.id ? "is-active" : ""
-                    }`}
+                    className={`history-item ${selectedHistory?.id === item.id ? "is-active" : ""}`}
                   >
                     <button
                       className="history-item-main"
@@ -547,9 +750,7 @@ function App() {
                       onClick={() => handleSelectHistory(item.id, item)}
                       disabled={historyActionLoading}
                     >
-                      <span className="history-item-text">
-                        {makeSnippet(item.source_text)}
-                      </span>
+                      <span className="history-item-text">{makeSnippet(item.source_text)}</span>
                       <span className="history-item-meta">
                         {item.style_applied} · {formatDateTime(item.created_at)}
                       </span>
@@ -612,9 +813,7 @@ function App() {
                           <strong>
                             {variant.label || variantLabelFallback[variant.variant_type]}
                           </strong>
-                          <p className="history-variant-note">
-                            {variant.short_note}
-                          </p>
+                          <p className="history-variant-note">{variant.short_note}</p>
                           <p>{variant.translated_text}</p>
                         </div>
                       ))}

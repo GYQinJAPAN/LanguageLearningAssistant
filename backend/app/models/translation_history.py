@@ -60,8 +60,43 @@ class TranslationVariant(Base):
         index=True,
     )
     history: Mapped[TranslationHistory] = relationship(back_populates="variants")
+    speaking_tip: Mapped["SpeakingTip | None"] = relationship(
+        back_populates="variant",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
     @property
     def label(self) -> str:
         """Return a display label for the variant type."""
         return VARIANT_LABELS.get(self.variant_type, self.variant_type)
+
+    @property
+    def variant_id(self) -> int:
+        """Return the public variant identifier used by client APIs."""
+        return self.id
+
+
+class SpeakingTip(Base):
+    """Persisted speaking tips cached for one translation variant."""
+
+    __tablename__ = "speaking_tips"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("translation_variants.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    stress_words_json: Mapped[str] = mapped_column(Text, nullable=False)
+    linking_notes_json: Mapped[str] = mapped_column(Text, nullable=False)
+    more_spoken_text: Mapped[str] = mapped_column(Text, nullable=False)
+    note_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+    variant: Mapped[TranslationVariant] = relationship(back_populates="speaking_tip")

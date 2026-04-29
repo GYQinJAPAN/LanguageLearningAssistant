@@ -8,13 +8,13 @@ from app.schemas.translate_schema import (
     TranslateResponse,
     TranslationVariant,
 )
-from app.services.history_service import create_history_record
-from app.services.learning_response_format import (
+from app.services.format.learning_response_format import (
     LEARNING_MIN_OUTPUT_TOKENS,
     LEARNING_VARIANT_RESPONSE_FORMAT,
 )
-from app.services.learning_variant_parser import parse_learning_variants
+from app.services.history_service import create_history_record
 from app.services.llm_service import translate_and_rewrite
+from app.services.parsers.learning_variant_parser import parse_learning_variants
 from app.utils.prompt_manager import PromptManager
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,26 +54,15 @@ async def handle_translation_request(
         natural_variant = next(variant for variant in variants if variant.variant_type == "natural")
         result_text = natural_variant.translated_text
 
-    response = TranslateResponse(
-        original_text=request.text,
-        translated_text=result_text,
-        style_requested=request.style,
-        style_applied=actual_style,
-        source_lang=request.source_lang,
-        target_lang=request.target_lang,
-        result_mode=request.result_mode,
-        variants=variants,
-    )
-
-    await create_history_record(
+    history = await create_history_record(
         session=session,
         payload=TranslationHistoryCreate(
-            source_text=response.original_text,
-            translated_text=response.translated_text,
-            style_requested=response.style_requested,
-            style_applied=response.style_applied,
-            source_lang=response.source_lang,
-            target_lang=response.target_lang,
+            source_text=request.text,
+            translated_text=result_text,
+            style_requested=request.style,
+            style_applied=actual_style,
+            source_lang=request.source_lang,
+            target_lang=request.target_lang,
         ),
         variants=[
             TranslationVariantCreate(
@@ -84,5 +73,24 @@ async def handle_translation_request(
             )
             for variant in variants or []
         ],
+    )
+
+    response_variants = variants
+    if variants:
+        persisted_variant_ids = {variant.variant_type: variant.id for variant in history.variants}
+        response_variants = [
+            variant.model_copy(update={"variant_id": persisted_variant_ids.get(variant.variant_type)})
+            for variant in variants
+        ]
+
+    response = TranslateResponse(
+        original_text=request.text,
+        translated_text=result_text,
+        style_requested=request.style,
+        style_applied=actual_style,
+        source_lang=request.source_lang,
+        target_lang=request.target_lang,
+        result_mode=request.result_mode,
+        variants=response_variants,
     )
     return response

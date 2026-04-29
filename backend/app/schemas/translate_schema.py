@@ -34,6 +34,7 @@ class TranslationVariant(BaseModel):
 
     variant_type: VariantType
     label: str
+    variant_id: int | None = Field(default=None, ge=1)
     translated_text: str
     short_note: str
     sort_order: int = Field(default=0, ge=0)
