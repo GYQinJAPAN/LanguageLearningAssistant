@@ -9,6 +9,10 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+class PromptManagerError(RuntimeError):
+    """Raised when a required prompt resource cannot be loaded."""
+
+
 class PromptManager:
     """Manage prompt files, style validation, fallback, and prompt rendering."""
 
@@ -29,9 +33,7 @@ class PromptManager:
 
     def __init__(self, prompt_dir: Path | None = None) -> None:
         """Initialize the manager with the configured prompt directory."""
-        if prompt_dir is None:
-            prompt_dir = settings.PROMPT_DIR
-        self.prompt_dir = prompt_dir
+        self.prompt_dir = prompt_dir or settings.PROMPT_DIR
 
     def validate_style_key(self, style_name: str) -> str:
         """Validate and normalize a style key."""
@@ -62,38 +64,63 @@ class PromptManager:
             raise ValueError("invalid task template path.")
         return task_path
 
+    def _read_text_file(self, file_path: Path, *, resource_label: str) -> str:
+        """Read a UTF-8 prompt file and wrap filesystem errors with context."""
+        try:
+            return file_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            logger.exception("Failed to load %s from path=%s.", resource_label, file_path)
+            raise PromptManagerError(f"Failed to load {resource_label}.") from exc
+
     def load_prompt(self, style_name: str) -> tuple[str, str]:
         """Load the requested prompt or fall back only for valid missing styles."""
         style_key = self.validate_style_key(style_name)
         prompt_path = self._prompt_path_for(style_key)
 
         if prompt_path.exists():
-            return style_key, prompt_path.read_text(encoding="utf-8")
+            return style_key, self._read_text_file(
+                prompt_path,
+                resource_label=f"style prompt '{style_key}'",
+            )
 
         logger.warning(
-            "Prompt file for style '%s' was not found. Falling back to '%s'.",
+            "Prompt file for style '%s' was not found. path=%s fallback=%s",
             style_key,
+            prompt_path,
             self.DEFAULT_STYLE,
         )
 
         fallback_path = self._prompt_path_for(self.DEFAULT_STYLE)
         if fallback_path.exists():
-            return self.DEFAULT_STYLE, fallback_path.read_text(encoding="utf-8")
+            return self.DEFAULT_STYLE, self._read_text_file(
+                fallback_path,
+                resource_label=f"default style prompt '{self.DEFAULT_STYLE}'",
+            )
 
-        logger.warning("Default prompt file was not found. Using built-in fallback.")
+        logger.warning(
+            "Default prompt file was not found. path=%s Using built-in fallback.",
+            fallback_path,
+        )
         return self.BUILTIN_FALLBACK_STYLE, self.BUILTIN_FALLBACK_PROMPT
 
     def load_task_template(self, task_name: str) -> str:
         """Load a task template used with a style prompt."""
         task_path = self._task_path_for(task_name)
         if task_path.exists():
-            return task_path.read_text(encoding="utf-8")
+            return self._read_text_file(
+                task_path,
+                resource_label=f"task template '{task_name}'",
+            )
 
         if task_name == "translate_single":
-            logger.warning("Single-translation task template was not found. Using built-in fallback.")
+            logger.warning(
+                "Single-translation task template was not found. path=%s Using built-in fallback.",
+                task_path,
+            )
             return self.BUILTIN_SINGLE_TASK
 
-        raise ValueError(f"task template does not exist: {task_name}")
+        logger.error("Task template file is missing. task=%s path=%s", task_name, task_path)
+        raise PromptManagerError(f"Task template file is missing: {task_name}")
 
     def build_system_prompt(
         self,

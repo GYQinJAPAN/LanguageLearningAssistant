@@ -1,3 +1,5 @@
+"""Structured output contract for learning-mode translation variants."""
+
 VARIANT_ORDER = ("written", "natural", "spoken")
 VARIANT_LABELS = {
     "written": "书面版",

@@ -1,7 +1,9 @@
 """History API routes."""
 
+import logging
+
 from app.core.config import settings
-from app.core.database import get_db_session
+from app.core.database import DatabaseOperationError, get_db_session
 from app.schemas.history_schema import (
     TranslationHistoryClearResponse,
     TranslationHistoryDeleteResponse,
@@ -17,6 +19,7 @@ from app.services.history_service import (
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = logging.getLogger(__name__)
 router: APIRouter = APIRouter(prefix=settings.api_prefix, tags=["History"])
 
 
@@ -26,15 +29,27 @@ async def list_history(
     page_size: int = Query(default=20, ge=1, le=100),
     q: str | None = Query(default=None, min_length=1, max_length=200),
     session: AsyncSession = Depends(get_db_session),
-):
+) -> TranslationHistoryListResponse:
     """List translation history records with optional keyword search."""
     keyword = q.strip() if q and q.strip() else None
-    items, total = await list_history_records(
-        session=session,
-        page=page,
-        page_size=page_size,
-        keyword=keyword,
+    logger.info(
+        "History list requested. page=%s page_size=%s keyword_length=%s",
+        page,
+        page_size,
+        len(keyword) if keyword else 0,
     )
+    try:
+        items, total = await list_history_records(
+            session=session,
+            page=page,
+            page_size=page_size,
+            keyword=keyword,
+        )
+    except DatabaseOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to query translation history.",
+        ) from exc
 
     return TranslationHistoryListResponse(
         items=items,
@@ -48,10 +63,18 @@ async def list_history(
 async def get_history(
     history_id: int,
     session: AsyncSession = Depends(get_db_session),
-):
+) -> TranslationHistoryItem:
     """Return one translation history record by ID."""
-    history = await get_history_record(session=session, history_id=history_id)
+    logger.info("History detail requested. history_id=%s", history_id)
+    try:
+        history = await get_history_record(session=session, history_id=history_id)
+    except DatabaseOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load translation history.",
+        ) from exc
     if history is None:
+        logger.warning("History detail not found. history_id=%s", history_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="History record not found.",
@@ -64,10 +87,18 @@ async def get_history(
 async def delete_history(
     history_id: int,
     session: AsyncSession = Depends(get_db_session),
-):
+) -> TranslationHistoryDeleteResponse:
     """Delete one translation history record by ID."""
-    deleted = await delete_history_record(session=session, history_id=history_id)
+    logger.info("History delete requested. history_id=%s", history_id)
+    try:
+        deleted = await delete_history_record(session=session, history_id=history_id)
+    except DatabaseOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete translation history.",
+        ) from exc
     if not deleted:
+        logger.warning("History delete target not found. history_id=%s", history_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="History record not found.",
@@ -79,9 +110,16 @@ async def delete_history(
 @router.delete("/history", response_model=TranslationHistoryClearResponse)
 async def clear_history(
     session: AsyncSession = Depends(get_db_session),
-):
+) -> TranslationHistoryClearResponse:
     """Delete all translation history records."""
-    deleted_count = await clear_history_records(session=session)
+    logger.info("History clear requested.")
+    try:
+        deleted_count = await clear_history_records(session=session)
+    except DatabaseOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to clear translation history.",
+        ) from exc
 
     return TranslationHistoryClearResponse(
         deleted=True,

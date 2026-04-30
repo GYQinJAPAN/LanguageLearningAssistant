@@ -1,6 +1,7 @@
 """OpenAI client access and translation service functions."""
 
 import logging
+from typing import Any
 
 from app.core.config import settings
 from app.utils.prompt_manager import PromptManager
@@ -11,16 +12,20 @@ _client: AsyncOpenAI | None = None
 prompt_manager: PromptManager = PromptManager()
 
 
+class LLMServiceError(RuntimeError):
+    """Raised when an upstream LLM call cannot be completed safely."""
+
+
 def get_openai_client() -> AsyncOpenAI:
     """Return a cached OpenAI async client configured from settings."""
     global _client
 
     if not settings.OPENAI_API_KEY:
         logger.error("OpenAI API key is not configured.")
-        raise RuntimeError("OpenAI API key is not configured. Check backend/.env.")
+        raise LLMServiceError("LLM service is not configured.")
 
     if _client is None:
-        client_options = {"api_key": settings.OPENAI_API_KEY}
+        client_options: dict[str, Any] = {"api_key": settings.OPENAI_API_KEY}
         if settings.OPENAI_BASE_URL:
             client_options["base_url"] = settings.OPENAI_BASE_URL
 
@@ -34,11 +39,15 @@ async def _generate_text_response(
     user_text: str,
     instructions: str,
     max_output_tokens: int | None = None,
-    text_format: dict | None = None,
+    text_format: dict[str, object] | None = None,
 ) -> str:
-    """Send one text-generation request to the LLM and return the text output."""
+    """Send one text-generation request to the LLM and return the text output.
+
+    Raises:
+        LLMServiceError: If the client is misconfigured or the upstream call fails.
+    """
     try:
-        response_options = {
+        response_options: dict[str, Any] = {
             "model": settings.OPENAI_MODEL,
             "instructions": instructions,
             "input": user_text,
@@ -48,20 +57,33 @@ async def _generate_text_response(
         if text_format:
             response_options["text"] = {"format": text_format}
 
+        logger.debug(
+            "Calling OpenAI responses API. model=%s input_length=%s max_output_tokens=%s structured=%s",
+            settings.OPENAI_MODEL,
+            len(user_text),
+            response_options["max_output_tokens"],
+            bool(text_format),
+        )
         response = await get_openai_client().responses.create(**response_options)
-        return (response.output_text or "").strip()
-    except RuntimeError:
+        output_text = (response.output_text or "").strip()
+        logger.debug(
+            "OpenAI response received. output_length=%s preview=%r",
+            len(output_text),
+            output_text[:200],
+        )
+        return output_text
+    except LLMServiceError:
         raise
     except Exception as exc:
         logger.exception("OpenAI API call failed.")
-        raise RuntimeError("The translation service is temporarily unavailable.") from exc
+        raise LLMServiceError("The translation service is temporarily unavailable.") from exc
 
 
 async def translate_and_rewrite(
     user_text: str,
     system_prompt: str,
     max_output_tokens: int | None = None,
-    text_format: dict | None = None,
+    text_format: dict[str, object] | None = None,
 ) -> str:
     """Send the prompt and user text to the LLM and return the final text."""
     return await _generate_text_response(
@@ -80,7 +102,7 @@ async def generate_speaking_tips(
     variant_type: str,
     translated_text: str,
     max_output_tokens: int | None = None,
-    text_format: dict | None = None,
+    text_format: dict[str, object] | None = None,
 ) -> str:
     """Generate speaking tips for one selected learning-mode variant."""
     task_template = prompt_manager.load_task_template("speaking_tips")
