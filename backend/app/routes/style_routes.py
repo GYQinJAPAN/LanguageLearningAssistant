@@ -17,8 +17,8 @@ async def get_styles() -> StyleListResponse:
     """Return available translation styles."""
     logger.info("Styles list requested.")
     try:
-        style_names = prompt_manager.list_styles()
-        styles = [
+        style_names: list[str] = prompt_manager.list_styles()
+        styles: list[StyleItem] = [
             StyleItem(
                 key=style_name,
                 label=prompt_manager.build_style_label(style_name),

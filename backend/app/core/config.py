@@ -4,9 +4,9 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DEFAULT_DATABASE_PATH = BASE_DIR / "data" / "app.db"
-DEFAULT_DATABASE_URL = f"sqlite+aiosqlite:///{DEFAULT_DATABASE_PATH.as_posix()}"
+BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
+DEFAULT_DATABASE_PATH: Path = BASE_DIR / "data" / "app.db"
+DEFAULT_DATABASE_URL: str = f"sqlite+aiosqlite:///{DEFAULT_DATABASE_PATH.as_posix()}"
 
 
 class Settings(BaseSettings):
@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
+    # 忽略那些模型未声明的额外字段
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
@@ -45,12 +46,10 @@ class Settings(BaseSettings):
     def api_prefix(self) -> str:
         """Return the API prefix with one leading slash and no trailing slash."""
         prefix = self.API_PREFIX.strip()
-        if not prefix:
-            return ""
         return f"/{prefix.strip('/')}"
 
 
 settings = Settings()
 
 # Compatibility alias for older imports. New code should use settings.PROMPT_DIR.
-PROMPT_DIR = settings.PROMPT_DIR
+PROMPT_DIR: Path = settings.PROMPT_DIR
