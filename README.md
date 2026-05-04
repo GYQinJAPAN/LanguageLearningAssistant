@@ -283,3 +283,54 @@ backend/app/prompts/tasks/translate_learning_mode.txt
 The backend combines one style prompt with one task template for each translation request. Style controls tone; `result_mode` controls whether the task returns one result or written/natural/spoken variants.
 
 Learning-mode prompt files describe the translation task and expression-level differences only. The JSON output shape, allowed `variant_type` values, ordering, and display labels are controlled in backend Python code and response schemas.
+
+## Environment Files
+
+Do not commit real secrets. Use these templates as references:
+
+- Backend: `backend/.env.example`
+- Frontend: `frontend/.env.example`
+
+Local backend environment:
+
+```env
+OPENAI_API_KEY=your_api_key_here
+ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+LOG_LEVEL=INFO
+```
+
+Local frontend environment, preferably `frontend/.env.local`:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
+```
+
+Keep `/api/v1` in `VITE_API_BASE_URL`. The frontend reads this value at build time through Vite, so production values should be configured in the hosting platform, not hard-coded in source code.
+
+## Demo Deployment
+
+This project is ready for a demo-level split deployment with the frontend on Vercel and the backend on Render. This is not a production hardening guide.
+
+Backend on Render:
+
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Required environment variables:
+  - `OPENAI_API_KEY=...`
+  - `ALLOWED_ORIGINS=https://<frontend-domain>`
+  - `LOG_LEVEL=INFO`
+- Optional environment variables:
+  - `OPENAI_MODEL=gpt-4o-mini`
+  - `OPENAI_BASE_URL=...`
+  - `DATABASE_URL=...`
+
+Frontend on Vercel:
+
+- Root directory: `frontend`
+- Build command: `npm run build`
+- Output directory: `dist`
+- Required environment variables:
+  - `VITE_API_BASE_URL=https://<backend-domain>/api/v1`
+
+For local Windows development, keep using the existing PowerShell commands and `start_dev.ps1`. The Render start command is Linux-oriented and should not replace the local development script.

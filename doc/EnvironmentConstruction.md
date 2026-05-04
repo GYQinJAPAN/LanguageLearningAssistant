@@ -369,7 +369,55 @@ Vite 官方的创建方式就是通过 create vite 来初始化项目。
 
 然后全局 Git 可以设成：
 ```git config --global core.autocrlf false```
-
-
 这样以后通常会更稳定。
+
+# 上线
+项目结构小结:
+- frontend：React + Vite
+- backend：FastAPI
+- database：SQLite
+- LLM：OpenAI API
+
+上线部署方案:
+- 前端：Vercel / Netlify / Render Static Site --> Vercel
+- 后端：Render / Railway / Fly.io --> Render
+- 数据库：SQLite 文件放在后端 persistent disk / volume
+
+## 上线前准备
+### 1. 后端不要用 --reload
+本地开发可以： uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+线上不要用 --reload。线上一般类似： uvicorn app.main:app --host 0.0.0.0 --port $PORT
+FastAPI 官方部署文档也强调，部署时需要考虑 HTTPS、启动、重启、进程数、内存、启动前步骤等概念。
+
+### 2. .env 改成平台环境变量
+你线上至少要配置：
+- OPENAI_API_KEY
+- OPENAI_BASE_URL    可选
+- APP_HOST
+- APP_PORT
+- ALLOWED_ORIGINS
+- LOG_LEVEL
+- DATABASE_URL 或 SQLITE_DB_PATH
+
+尤其是： OPENAI_API_KEY 不能写进代码 , 不能上传 GitHub , 不能放到前端
+
+### 3. SQLite 路径要适配线上
+本地可能是： backend/app.db
+但线上如果用 persistent volume，应该类似： /data/app.db
+所以你最好让数据库路径走环境变量，例如： DATABASE_URL=sqlite+aiosqlite:////data/app.db
+或者： SQLITE_DB_PATH=/data/app.db
+
+关键点是：db 文件必须落在持久化目录，不要落在普通项目目录。
+
+### 4. CORS 要从 * 改成前端域名
+开发时： ALLOWED_ORIGINS=*
+上线后建议改成： ALLOWED_ORIGINS=https://your-frontend.vercel.app
+否则虽然能跑，但不够像正式项目。
+
+### 5. 前端要设置线上 API 地址
+你现在前端应该有： VITE_API_BASE_URL
+本地是：http://127.0.0.1:8000/api/v1
+线上要改成：https://your-backend-domain.com/api/v1
+这个要配置在 Vercel / Netlify / Render Static Site 的环境变量里。
+
 
