@@ -372,6 +372,8 @@ Vite 官方的创建方式就是通过 create vite 来初始化项目。
 这样以后通常会更稳定。
 
 # 上线
+
+## 上线方案
 项目结构小结:
 - frontend：React + Vite
 - backend：FastAPI
@@ -383,41 +385,108 @@ Vite 官方的创建方式就是通过 create vite 来初始化项目。
 - 后端：Render / Railway / Fly.io --> Render
 - 数据库：SQLite 文件放在后端 persistent disk / volume
 
-## 上线前准备
-### 1. 后端不要用 --reload
-本地开发可以： uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-线上不要用 --reload。线上一般类似： uvicorn app.main:app --host 0.0.0.0 --port $PORT
-FastAPI 官方部署文档也强调，部署时需要考虑 HTTPS、启动、重启、进程数、内存、启动前步骤等概念。
+## Render后端
+1. 先注册 / 登录 Render
+    你可以直接用 GitHub 账号登录 Render。这样后面可以直接授权它读取你的 GitHub 仓库。 进入 Render 后：
+   - 点击 New +
+   - 选择 Web Service
+   - 选择 Build and deploy from a Git repository
+   - 连接你的 GitHub 仓库
+   - 选择这个项目仓库
 
-### 2. .env 改成平台环境变量
-你线上至少要配置：
-- OPENAI_API_KEY
-- OPENAI_BASE_URL    可选
-- APP_HOST
-- APP_PORT
-- ALLOWED_ORIGINS
-- LOG_LEVEL
-- DATABASE_URL 或 SQLITE_DB_PATH
+2. 填写后端配置
+   - 选择仓库
+     点击你这个 GitHub 仓库那一行："GYQinJAPAN / LanguageLearningAssistant". 
+     点进去以后，Render 会进入后端 Web Service 的详细配置页面。
 
-尤其是： OPENAI_API_KEY 不能写进代码 , 不能上传 GitHub , 不能放到前端
+   - 基础配置:
+     - Name： "language-learning-assistant-backend" . 
+        - 名字随便，但建议一看就知道是后端。
 
-### 3. SQLite 路径要适配线上
-本地可能是： backend/app.db
-但线上如果用 persistent volume，应该类似： /data/app.db
-所以你最好让数据库路径走环境变量，例如： DATABASE_URL=sqlite+aiosqlite:////data/app.db
-或者： SQLITE_DB_PATH=/data/app.db
+     - Region:如果有新加坡、日本附近的区域，优先选离日本近的。 如果没有，就选默认也可以。这个只是影响访问速度，不影响能不能跑。
 
-关键点是：db 文件必须落在持久化目录，不要落在普通项目目录。
+     - Branch ： "main" . 如果你的代码主要在 develop，才选 develop。 但一般上线选 main。
 
-### 4. CORS 要从 * 改成前端域名
-开发时： ALLOWED_ORIGINS=*
-上线后建议改成： ALLOWED_ORIGINS=https://your-frontend.vercel.app
-否则虽然能跑，但不够像正式项目。
+     - Root Directory ： "backend" . 因为你的 FastAPI 项目在： LanguageLearningAssistant/backend . 不是在项目根目录。
 
-### 5. 前端要设置线上 API 地址
-你现在前端应该有： VITE_API_BASE_URL
-本地是：http://127.0.0.1:8000/api/v1
-线上要改成：https://your-backend-domain.com/api/v1
-这个要配置在 Vercel / Netlify / Render Static Site 的环境变量里。
+     - Runtime / Language ： "Python" . 
+        - 实际配置时,没有这个选项
+
+     - Build Command ： "pip install -r requirements.txt" .
+        - 因为你已经把 Root Directory 设置成了 backend，所以这里的 requirements.txt 指的是： backend/requirements.txt
+        - 不用写成： pip install -r backend/requirements.txt
+       
+     - Start Command ： "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+        - Render 的 Web Service 必须绑定到 0.0.0.0，并推荐使用平台提供的 PORT 环境变量；
+        - Render 文档也说明 Web Service 默认端口是 10000，但应优先使用 PORT。
+
+     - Instance Type / Plan :第一次部署可以选免费或者最便宜的。 如果看到类似： Free , 就先选 Free。
+    
+     - Environment Variables : 在配置页面下面应该有 Environment Variables 或 Advanced 区域。
+       - OPENAI_API_KEY : OPENAI_API_KEY = 你的真实 OpenAI API Key . 注意：不要填引号，不要有多余空格。
+         - 正确： sk-xxxxxxxx
+         - 不要这样："sk-xxxxxxxx"
+    
+       - ALLOWED_ORIGINS
+         - 现在你还没有 Vercel 前端域名，所以先临时填： ALLOWED_ORIGINS = * .
+         - 等后面 Vercel 前端部署完成后，再回来改成： ALLOWED_ORIGINS = https://你的前端域名.vercel.app
+         - 注意url最后不能有/
+    
+       - LOG_LEVEL LOG_LEVEL = INFO
+       - other :暂时不要填 OPENAI_BASE_URL. 如果你平时没有使用代理或自定义 OpenAI endpoint，就先不要填： OPENAI_BASE_URL . 不要填空值，先不添加这个变量最稳。
+
+3. 然后点击： Create Web Service
+4. 测试后端接口:
+   ```
+    部署成功后，Render 会给你一个后端地址，类似：https://language-learning-assistant-backend.onrender.com
+    
+    1.打开：https://你的后端域名/docs . 如果能看到 FastAPI 文档页面，就说明后端部署成功了。
+    
+    2.在 /docs 里面测试：
+     - 先测 styles
+      找：GET /api/v1/styles
+      点 Try it out → Execute。
+      能返回风格列表就说明后端基本正常。
+    
+    - 再测 translate
+      找：POST /api/v1/translate
+      填：{
+        "text": "今天晚上吃什么好呢？",
+        "style": "flirty",
+        "source_lang": "auto",
+        "target_lang": "English",
+        "result_mode": "single"
+      }
+      预期返回英文翻译。
+    ```
 
 
+
+## Vercel前端
+1. 去 Vercel 创建前端项目
+   - 打开 Vercel，建议用 GitHub 登录。
+   - 进入 Dashboard 后：
+   - 点击 Add New
+   - 选择 Project
+   - 找到你的 GitHub 仓库： GYQinJAPAN / LanguageLearningAssistant
+   - 点击 Import
+2. 配置 Vercel 项目
+   - Framework Preset/Application Preset ： Vite. 实际配置时,是一个叫"xxxServices"选项,可以配置编程语言.
+   - Root Directory ： frontend . 因为你的 React + Vite 项目在： LanguageLearningAssistant/frontend.
+   - Build Command ： npm run build
+   - Output Directory ： dist . Vite 默认生产构建输出目录就是 dist。
+
+3. 配置 Vercel 环境变量
+  - 在 Vercel 项目配置页里找到 Environment Variables。
+  - 添加： VITE_API_BASE_URL , 值填你的 Render 后端地址，加上 /api/v1：
+  - 举例：https://你的-render后端域名.onrender.com/api/v1 --> https://language-learning-assistant-backend.onrender.com/api/v1
+
+4. 点击 Deploy
+   - 等待构建完成。 如果成功，你会得到一个前端域名，例如：https://language-learning-assistant.vercel.app
+
+5. 回 Render 修改 CORS
+   - 回到 Render 后端项目, 进入你的 backend service
+   - 找到: Environment
+   - 找到：ALLOWED_ORIGINS
+   - 把临时的："*" --> 改成你的 Vercel 域名："https://你的项目名.vercel.app"
+   - 例如：https://language-learning-assistant.vercel.app . 保存后，Render 一般会自动重启或重新部署。等它完成。
