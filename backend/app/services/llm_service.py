@@ -4,16 +4,13 @@ import logging
 from typing import Any
 
 from app.core.config import settings
+from app.core.exceptions import LLMServiceError
 from app.utils.prompt_manager import PromptManager
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 _client: AsyncOpenAI | None = None
 prompt_manager: PromptManager = PromptManager()
-
-
-class LLMServiceError(RuntimeError):
-    """Raised when an upstream LLM call cannot be completed safely."""
 
 
 def get_openai_client() -> AsyncOpenAI:
@@ -105,8 +102,8 @@ async def generate_speaking_tips(
     text_format: dict[str, object] | None = None,
 ) -> str:
     """Generate speaking tips for one selected learning-mode variant."""
-    task_template = prompt_manager.load_task_template("speaking_tips")
-    instructions = task_template.format(
+    task_template: str = prompt_manager.load_task_template("speaking_tips")
+    instructions: str = task_template.format(
         source_lang=source_lang,
         target_lang=target_lang,
         source_text=source_text,

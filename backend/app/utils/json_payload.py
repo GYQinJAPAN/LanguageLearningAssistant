@@ -3,11 +3,9 @@
 import json
 import logging
 
+from app.core.exceptions import StructuredOutputError
+
 logger = logging.getLogger(__name__)
-
-
-class StructuredOutputError(RuntimeError):
-    """Raised when structured LLM output cannot be parsed or normalized."""
 
 
 def extract_json_payload(raw_text: str) -> object:

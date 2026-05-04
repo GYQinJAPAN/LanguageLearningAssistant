@@ -88,7 +88,7 @@ Base interpreter（选择 Python 版本）
 # 安装代码整型工具
 
 1. Black（代码格式化工具）-->用 Black 自动格式化代码
-2. Flask（Web框架）-->用 Flask 写项目
+2. Flake8
 3. File Watcher（文件监听器）-->用 Watcher 在保存时自动执行 Black
    注意仍要先进入虚拟环境,再pip
 

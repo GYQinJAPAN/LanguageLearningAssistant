@@ -2,7 +2,8 @@
 
 import logging
 
-from app.core.database import DatabaseOperationError, rollback_session
+from app.core.database import rollback_session
+from app.core.exceptions import DatabaseOperationError
 from app.models.translation_history import SpeakingTip, TranslationHistory, TranslationVariant
 from app.schemas.history_schema import TranslationHistoryCreate, TranslationVariantCreate
 from sqlalchemy import delete, func, or_, select

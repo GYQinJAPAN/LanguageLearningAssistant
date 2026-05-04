@@ -5,12 +5,9 @@ import re
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.exceptions import PromptManagerError
 
 logger = logging.getLogger(__name__)
-
-
-class PromptManagerError(RuntimeError):
-    """Raised when a required prompt resource cannot be loaded."""
 
 
 class PromptManager:

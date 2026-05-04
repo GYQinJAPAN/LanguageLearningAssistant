@@ -2,12 +2,13 @@
 
 import logging
 
+from app.core.exceptions import StructuredOutputError
 from app.schemas.speaking_tips_schema import SpeakingTipLinkingNote, SpeakingTipsPayload
 from app.services.format.speaking_tips_response_format import (
     SPEAKING_TIPS_LINKING_NOTES_MAX,
     SPEAKING_TIPS_STRESS_WORDS_MAX,
 )
-from app.utils.json_payload import StructuredOutputError, extract_json_payload
+from app.utils.json_payload import extract_json_payload
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ def parse_speaking_tips(raw_text: str) -> SpeakingTipsPayload:
         word = item.strip()
         if word:
             stress_words.append(word)
+    # 这边限制了重音的显示数量
     stress_words = stress_words[:SPEAKING_TIPS_STRESS_WORDS_MAX]
 
     raw_linking_notes = payload.get("linking_notes")

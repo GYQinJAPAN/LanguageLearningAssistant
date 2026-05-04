@@ -2,9 +2,10 @@
 
 import logging
 
+from app.core.exceptions import StructuredOutputError
 from app.schemas.translate_schema import TranslationVariant
 from app.services.format.learning_response_format import VARIANT_LABELS, VARIANT_ORDER
-from app.utils.json_payload import StructuredOutputError, extract_json_payload
+from app.utils.json_payload import extract_json_payload
 from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)

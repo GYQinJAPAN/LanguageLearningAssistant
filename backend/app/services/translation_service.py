@@ -3,8 +3,16 @@
 import logging
 
 from app.core.config import settings
-from app.schemas.history_schema import TranslationHistoryCreate, TranslationVariantCreate
-from app.schemas.translate_schema import TranslateRequest, TranslateResponse, TranslationVariant
+from app.core.exceptions import StructuredOutputError
+from app.schemas.history_schema import (
+    TranslationHistoryCreate,
+    TranslationVariantCreate,
+)
+from app.schemas.translate_schema import (
+    TranslateRequest,
+    TranslateResponse,
+    TranslationVariant,
+)
 from app.services.format.learning_response_format import (
     LEARNING_MIN_OUTPUT_TOKENS,
     LEARNING_VARIANT_RESPONSE_FORMAT,
@@ -12,7 +20,6 @@ from app.services.format.learning_response_format import (
 from app.services.history_service import create_history_record
 from app.services.llm_service import translate_and_rewrite
 from app.services.parsers.learning_variant_parser import parse_learning_variants
-from app.utils.json_payload import StructuredOutputError
 from app.utils.prompt_manager import PromptManager
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +43,7 @@ async def handle_translation_request(
 
     actual_style, style_template = prompt_manager.load_prompt(request.style)
     task_name = "translate_learning_mode" if request.result_mode == "learning" else "translate_single"
-    task_template = prompt_manager.load_task_template(task_name)
+    task_template: str = prompt_manager.load_task_template(task_name)
     logger.debug(
         "Translation prompt resolved. requested_style=%s applied_style=%s task=%s",
         request.style,
@@ -44,14 +51,18 @@ async def handle_translation_request(
         task_name,
     )
 
-    system_prompt = prompt_manager.build_system_prompt(
+    system_prompt: str = prompt_manager.build_system_prompt(
         style_template=style_template,
         task_template=task_template,
         source_lang=request.source_lang,
         target_lang=request.target_lang,
     )
 
-    logger.info("Calling LLM for translation. mode=%s applied_style=%s", request.result_mode, actual_style)
+    logger.info(
+        "Calling LLM for translation. mode=%s applied_style=%s",
+        request.result_mode,
+        actual_style,
+    )
     raw_result_text = await translate_and_rewrite(
         user_text=request.text,
         system_prompt=system_prompt,
@@ -72,7 +83,10 @@ async def handle_translation_request(
     if request.result_mode == "learning":
         variants = parse_learning_variants(raw_result_text)
         logger.info("Learning-mode variants parsed successfully. count=%s", len(variants))
-        logger.debug("Learning-mode variant types=%s", [variant.variant_type for variant in variants])
+        logger.debug(
+            "Learning-mode variant types=%s",
+            [variant.variant_type for variant in variants],
+        )
         natural_variant = next((variant for variant in variants if variant.variant_type == "natural"), None)
         if natural_variant is None:
             logger.warning("Learning-mode output did not include the natural variant.")
@@ -104,6 +118,7 @@ async def handle_translation_request(
     response_variants: list[TranslationVariant] | None = variants
     if variants:
         persisted_variant_ids = {variant.variant_type: variant.id for variant in history.variants}
+        # 为SpeakingTip准备ID
         response_variants = [
             variant.model_copy(update={"variant_id": persisted_variant_ids.get(variant.variant_type)})
             for variant in variants

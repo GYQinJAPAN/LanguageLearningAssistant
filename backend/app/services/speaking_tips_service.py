@@ -4,8 +4,13 @@ import json
 import logging
 from json import JSONDecodeError
 
-from app.core.database import DatabaseOperationError, rollback_session
-from app.models.translation_history import SpeakingTip, TranslationHistory, TranslationVariant
+from app.core.database import rollback_session
+from app.core.exceptions import DatabaseOperationError, UnsupportedTargetLanguageError
+from app.models.translation_history import (
+    SpeakingTip,
+    TranslationHistory,
+    TranslationVariant,
+)
 from app.schemas.speaking_tips_schema import SpeakingTipsPayload, SpeakingTipsResponse
 from app.services.format.speaking_tips_response_format import (
     SPEAKING_TIPS_OUTPUT_TOKENS,
@@ -45,18 +50,6 @@ def is_english_target_language(target_lang: str) -> bool:
     }
 
 
-def _serialize_payload(variant_id: int, payload: SpeakingTipsPayload, cached: bool) -> SpeakingTipsResponse:
-    """Convert normalized tips payload into the API response model."""
-    return SpeakingTipsResponse(
-        variant_id=variant_id,
-        cached=cached,
-        stress_words=payload.stress_words,
-        linking_notes=payload.linking_notes,
-        more_spoken_text=payload.more_spoken_text,
-        note_text=payload.note_text,
-    )
-
-
 def _deserialize_cached_tip(tip: SpeakingTip) -> SpeakingTipsPayload:
     """Convert a persisted speaking tips row back into the response payload."""
     try:
@@ -68,7 +61,19 @@ def _deserialize_cached_tip(tip: SpeakingTip) -> SpeakingTipsPayload:
         )
     except (JSONDecodeError, TypeError, ValueError) as exc:
         logger.exception("Cached speaking tips payload is invalid. variant_id=%s", tip.variant_id)
-        raise RuntimeError("Cached speaking tips are unavailable.") from exc
+        raise DatabaseOperationError("Cached speaking tips are unavailable.") from exc
+
+
+def _serialize_payload(variant_id: int, payload: SpeakingTipsPayload, cached: bool) -> SpeakingTipsResponse:
+    """Convert normalized tips payload into the API response model."""
+    return SpeakingTipsResponse(
+        variant_id=variant_id,
+        cached=cached,
+        stress_words=payload.stress_words,
+        linking_notes=payload.linking_notes,
+        more_spoken_text=payload.more_spoken_text,
+        note_text=payload.note_text,
+    )
 
 
 async def get_or_create_speaking_tips(
@@ -98,16 +103,25 @@ async def get_or_create_speaking_tips(
             .where(TranslationVariant.id == variant_id)
         )
     except SQLAlchemyError as exc:
-        logger.exception("Failed to load translation variant for speaking tips. variant_id=%s", variant_id)
+        logger.exception(
+            "Failed to load translation variant for speaking tips. variant_id=%s",
+            variant_id,
+        )
         raise DatabaseOperationError("Failed to load speaking tips target variant.") from exc
     if variant is None:
-        logger.warning("Speaking tips request referenced missing variant. variant_id=%s", variant_id)
+        logger.warning(
+            "Speaking tips request referenced missing variant. variant_id=%s",
+            variant_id,
+        )
         raise LookupError("Translation variant not found.")
 
     history: TranslationHistory | None = variant.history
     if history is None:
-        logger.error("Speaking tips request found variant without history. variant_id=%s", variant_id)
-        raise RuntimeError("Translation history is missing for the selected variant.")
+        logger.error(
+            "Speaking tips request found variant without history. variant_id=%s",
+            variant_id,
+        )
+        raise DatabaseOperationError("Translation history is missing for the selected variant.")
 
     if not is_english_target_language(history.target_lang):
         logger.warning(
@@ -115,10 +129,16 @@ async def get_or_create_speaking_tips(
             variant_id,
             history.target_lang,
         )
-        raise ValueError("Speaking tips are currently available only when the target language is English.")
+        raise UnsupportedTargetLanguageError(
+            "Speaking tips are currently available only when the target language is English."
+        )
 
     logger.info("Speaking tips cache miss. variant_id=%s cached=false", variant_id)
-    logger.info("Calling LLM for speaking tips. variant_id=%s variant_type=%s", variant_id, variant.variant_type)
+    logger.info(
+        "Calling LLM for speaking tips. variant_id=%s variant_type=%s",
+        variant_id,
+        variant.variant_type,
+    )
     raw_text = await generate_speaking_tips(
         source_lang=history.source_lang,
         target_lang=history.target_lang,

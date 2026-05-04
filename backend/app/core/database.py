@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.exceptions import DatabaseOperationError as DatabaseOperationError
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -16,10 +17,6 @@ class Base(DeclarativeBase):
     """Base class for SQLAlchemy ORM models."""
 
     pass
-
-
-class DatabaseOperationError(RuntimeError):
-    """Raised when a database query or persistence operation fails."""
 
 
 engine = create_async_engine(settings.DATABASE_URL, future=True)
